@@ -1,20 +1,66 @@
 
-# ClemScript - Test simple
+# ClemScript - Démonstration des nouvelles fonctionnalités
+
 Clem var Script x = 10;
-Clem console Script -> "Hello ClemScript!";
-Clem console Script -> "x = " + x;
+Clem var Script y = 20;
 
-# Test pair/impair
-Clem var Script test_pair = Clem even Script 10;
-Clem console Script -> "10 est pair: " + test_pair;
+Clem console Script -> "=== Fonctionnalités de base ===";
+Clem console Script -> "La somme est : " + (x + y);
 
-# Test math
-Clem var Script carre = Clem math Script square 5;
-Clem console Script -> "5 au carré: " + carre;
-
-# Boucle simple  
-Clem for Script i Clem from Script 1 Clem to Script 3 Clem do Script {
-    Clem console Script -> "i = " + i;
+# Nouvelles conditions renforcées avec && et ||
+Clem if Script (x > 5 && y < 25) Clem then Script {
+    Clem console Script -> "X est > 5 ET Y est < 25";
 }
 
-Clem console Script -> "Fin du test!";
+Clem if Script (x < 5 || y > 15) Clem then Script {
+    Clem console Script -> "X est < 5 OU Y est > 15";
+}
+
+# Test des nombres pairs et impairs
+Clem console Script -> "=== Tests pair/impair ===";
+Clem var Script test_pair = Clem even Script 10;
+Clem console Script -> "10 est pair : " + test_pair;
+
+Clem var Script test_impair = Clem odd Script 7;
+Clem console Script -> "7 est impair : " + test_impair;
+
+# Fonctions mathématiques
+Clem console Script -> "=== Fonctions mathématiques ===";
+Clem var Script carre = Clem math Script square 5;
+Clem console Script -> "5 au carré : " + carre;
+
+Clem var Script racine = Clem math Script sqrt 16;
+Clem console Script -> "Racine de 16 : " + racine;
+
+Clem var Script absolu = Clem math Script abs -8;
+Clem console Script -> "Valeur absolue de -8 : " + absolu;
+
+# Délais
+Clem console Script -> "=== Démonstration des délais ===";
+Clem console Script -> "Avant délai...";
+Clem delay Script 500;
+Clem console Script -> "Après délai!";
+
+# Boucle simple avec compteur croissant
+Clem console Script -> "=== Boucle de démonstration ===";
+Clem for Script i Clem from Script 1 Clem to Script 3 Clem do Script {
+    Clem console Script -> "Compteur : " + i;
+}
+
+# Simulation d'un compte à rebours
+Clem console Script -> "=== Compte à rebours ===";
+Clem var Script compte = 3;
+Clem console Script -> "Compte : " + compte;
+compte = 2;
+Clem console Script -> "Compte : " + compte;
+compte = 1;
+Clem console Script -> "Compte : " + compte;
+Clem console Script -> "GO!";
+
+# Couleurs
+Clem color Script "green" "Ce texte est vert - Nouvelles fonctionnalités ajoutées!";
+Clem color Script "blue" "ClemScript est maintenant plus puissant!";
+
+# Quiz avec les nouvelles fonctionnalités
+Clem quiz Script "Combien font 5 au carré?" 
+    Clem options Script "20" "25" "30" Clem answer Script 1;
