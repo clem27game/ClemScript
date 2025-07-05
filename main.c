@@ -1,7 +1,10 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <unistd.h>
+#include <math.h>
 
 // --- Constants and Enums ---
 
@@ -26,11 +29,14 @@ typedef enum {
     TOKEN_CLEM, TOKEN_SCRIPT, TOKEN_CONSOLE, TOKEN_VAR, TOKEN_IF, TOKEN_THEN,
     TOKEN_ELSE, TOKEN_WHILE, TOKEN_DO, TOKEN_FOR, TOKEN_FROM, TOKEN_TO,
     TOKEN_COLOR, TOKEN_QUIZ, TOKEN_OPTIONS, TOKEN_ANSWER,
+    TOKEN_INPUT, TOKEN_EVEN, TOKEN_ODD, TOKEN_DELAY, TOKEN_MATH,
+    TOKEN_SQUARE, TOKEN_SQRT, TOKEN_ABS,
 
     // Operators
     TOKEN_PLUS, TOKEN_MINUS, TOKEN_ASTERISK, TOKEN_SLASH, TOKEN_ASSIGN,
     TOKEN_ARROW, // ->
     TOKEN_EQ, TOKEN_NEQ, TOKEN_LT, TOKEN_LE, TOKEN_GT, TOKEN_GE,
+    TOKEN_AND, TOKEN_OR, // && ||
 
     // Delimiters
     TOKEN_LPAREN, TOKEN_RPAREN, TOKEN_LBRACE, TOKEN_RBRACE, TOKEN_SEMICOLON
@@ -59,7 +65,12 @@ typedef enum {
     NODE_FOR_STMT,
     NODE_COLOR_STMT,
     NODE_QUIZ_STMT,
-    NODE_BLOCK_STMT // Represents a block of statements { ... }
+    NODE_BLOCK_STMT, // Represents a block of statements { ... }
+    NODE_INPUT_STMT,
+    NODE_EVEN_STMT,
+    NODE_ODD_STMT,
+    NODE_DELAY_STMT,
+    NODE_MATH_STMT
 } NodeType;
 
 // Forward declaration for ASTNode
@@ -83,7 +94,7 @@ typedef struct {
 // Binary Expression
 typedef struct {
     struct ASTNode *left;
-    TokenType operator; // +, -, *, /, ==, !=, <, >, <=, >=
+    TokenType operator; // +, -, *, /, ==, !=, <, >, <=, >=, &&, ||
     struct ASTNode *right;
 } BinaryExpr;
 
@@ -139,6 +150,28 @@ typedef struct {
     struct ASTNode *correct_answer_expr; // Integer literal expression (Node holding int literal)
 } QuizStmt;
 
+// Input Statement: Clem input Script <var_name> <prompt>
+typedef struct {
+    char *var_name; // Variable to store input
+    struct ASTNode *prompt_expr; // Prompt message
+} InputStmt;
+
+// Even/Odd Statement: Clem even/odd Script <expression>
+typedef struct {
+    struct ASTNode *expression;
+} EvenOddStmt;
+
+// Delay Statement: Clem delay Script <milliseconds>
+typedef struct {
+    struct ASTNode *milliseconds_expr;
+} DelayStmt;
+
+// Math Statement: Clem math Script <operation> <expression>
+typedef struct {
+    TokenType operation; // TOKEN_SQUARE, TOKEN_SQRT, TOKEN_ABS
+    struct ASTNode *expression;
+} MathStmt;
+
 // Block Statement: { ... }
 typedef struct {
     struct ASTNode **statements; // Array of statements (Nodes)
@@ -163,6 +196,10 @@ typedef struct ASTNode {
         ColorStmt color_stmt;
         QuizStmt quiz_stmt;
         BlockStmt block_stmt; // For program and blocks
+        InputStmt input_stmt;
+        EvenOddStmt even_odd_stmt;
+        DelayStmt delay_stmt;
+        MathStmt math_stmt;
     } data;
 } ASTNode;
 
@@ -188,6 +225,8 @@ ASTNode *parse_program();
 ASTNode *parse_statement();
 ASTNode *parse_clem_statement();
 ASTNode *parse_expression();
+ASTNode *parse_logical_or();
+ASTNode *parse_logical_and();
 ASTNode *parse_equality();
 ASTNode *parse_comparison();
 ASTNode *parse_term();
@@ -284,6 +323,20 @@ void free_ast_node(ASTNode *node) {
             free(node->data.quiz_stmt.option_exprs);
             free_ast_node(node->data.quiz_stmt.correct_answer_expr);
             break;
+        case NODE_INPUT_STMT:
+            free(node->data.input_stmt.var_name);
+            free_ast_node(node->data.input_stmt.prompt_expr);
+            break;
+        case NODE_EVEN_STMT:
+        case NODE_ODD_STMT:
+            free_ast_node(node->data.even_odd_stmt.expression);
+            break;
+        case NODE_DELAY_STMT:
+            free_ast_node(node->data.delay_stmt.milliseconds_expr);
+            break;
+        case NODE_MATH_STMT:
+            free_ast_node(node->data.math_stmt.expression);
+            break;
         case NODE_STRING_LITERAL:
         case NODE_IDENTIFIER:
             free(node->data.string_val); // This union member also covers identifier_name
@@ -366,6 +419,14 @@ static TokenType lexer_check_keyword(const char *text) {
     if (strcmp(text, "quiz") == 0) return TOKEN_QUIZ;
     if (strcmp(text, "options") == 0) return TOKEN_OPTIONS;
     if (strcmp(text, "answer") == 0) return TOKEN_ANSWER;
+    if (strcmp(text, "input") == 0) return TOKEN_INPUT;
+    if (strcmp(text, "even") == 0) return TOKEN_EVEN;
+    if (strcmp(text, "odd") == 0) return TOKEN_ODD;
+    if (strcmp(text, "delay") == 0) return TOKEN_DELAY;
+    if (strcmp(text, "math") == 0) return TOKEN_MATH;
+    if (strcmp(text, "square") == 0) return TOKEN_SQUARE;
+    if (strcmp(text, "sqrt") == 0) return TOKEN_SQRT;
+    if (strcmp(text, "abs") == 0) return TOKEN_ABS;
     return TOKEN_IDENTIFIER;
 }
 
@@ -451,6 +512,18 @@ Token lexer_get_token_struct() {
                 return (Token){TOKEN_GE, strdup(">="), token_line};
             }
             return (Token){TOKEN_GT, strdup(">"), token_line};
+        case '&':
+            if (lexer_peek_char() == '&') {
+                lexer_advance_char();
+                return (Token){TOKEN_AND, strdup("&&"), token_line};
+            }
+            error("Unexpected character '&'");
+        case '|':
+            if (lexer_peek_char() == '|') {
+                lexer_advance_char();
+                return (Token){TOKEN_OR, strdup("||"), token_line};
+            }
+            error("Unexpected character '|'");
         case '(': return (Token){TOKEN_LPAREN, strdup("("), token_line};
         case ')': return (Token){TOKEN_RPAREN, strdup(")"), token_line};
         case '{': return (Token){TOKEN_LBRACE, strdup("{"), token_line};
@@ -483,7 +556,6 @@ TokenType peek_token_type() {
 
     return type;
 }
-
 
 // --- Parser ---
 
@@ -689,9 +761,50 @@ ASTNode *parse_clem_statement() {
             error("Quiz answer must be an integer literal (option index).");
         }
         return quiz_node;
+    } else if (current_token.type == TOKEN_INPUT) {
+        consume(TOKEN_INPUT, "input");
+        consume(TOKEN_SCRIPT, "Script");
+        ASTNode *input_node = create_node(NODE_INPUT_STMT, stmt_line);
+        if (current_token.type != TOKEN_IDENTIFIER) {
+            syntax_error("variable name for input");
+        }
+        input_node->data.input_stmt.var_name = strdup(current_token.lexeme);
+        consume(TOKEN_IDENTIFIER, "variable name");
+        input_node->data.input_stmt.prompt_expr = parse_expression();
+        return input_node;
+    } else if (current_token.type == TOKEN_EVEN) {
+        consume(TOKEN_EVEN, "even");
+        consume(TOKEN_SCRIPT, "Script");
+        ASTNode *even_node = create_node(NODE_EVEN_STMT, stmt_line);
+        even_node->data.even_odd_stmt.expression = parse_expression();
+        return even_node;
+    } else if (current_token.type == TOKEN_ODD) {
+        consume(TOKEN_ODD, "odd");
+        consume(TOKEN_SCRIPT, "Script");
+        ASTNode *odd_node = create_node(NODE_ODD_STMT, stmt_line);
+        odd_node->data.even_odd_stmt.expression = parse_expression();
+        return odd_node;
+    } else if (current_token.type == TOKEN_DELAY) {
+        consume(TOKEN_DELAY, "delay");
+        consume(TOKEN_SCRIPT, "Script");
+        ASTNode *delay_node = create_node(NODE_DELAY_STMT, stmt_line);
+        delay_node->data.delay_stmt.milliseconds_expr = parse_expression();
+        return delay_node;
+    } else if (current_token.type == TOKEN_MATH) {
+        consume(TOKEN_MATH, "math");
+        consume(TOKEN_SCRIPT, "Script");
+        ASTNode *math_node = create_node(NODE_MATH_STMT, stmt_line);
+        if (current_token.type == TOKEN_SQUARE || current_token.type == TOKEN_SQRT || current_token.type == TOKEN_ABS) {
+            math_node->data.math_stmt.operation = current_token.type;
+            consume(current_token.type, "math operation (square, sqrt, abs)");
+            math_node->data.math_stmt.expression = parse_expression();
+            return math_node;
+        } else {
+            syntax_error("math operation (square, sqrt, abs)");
+        }
     }
 
-    syntax_error("valid ClemScript statement keyword (console, var, if, while, for, color, quiz)");
+    syntax_error("valid ClemScript statement keyword (console, var, if, while, for, color, quiz, input, even, odd, delay, math)");
     return NULL; // Should not reach here
 }
 
@@ -724,17 +837,44 @@ ASTNode *parse_block() {
     return block_node;
 }
 
-
 // Expression parsing (Operator Precedence Parsing)
-// expression -> equality
-// equality   -> comparison ( ( "==" | "!=" ) comparison )*
-// comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )*
-// term       -> factor ( ( "+" | "-" ) factor )*
-// factor     -> primary ( ( "*" | "/" ) primary )*
-// primary    -> INT | STRING | IDENTIFIER | "(" expression ")"
+// expression     -> logical_or
+// logical_or     -> logical_and ( "||" logical_and )*
+// logical_and    -> equality ( "&&" equality )*
+// equality       -> comparison ( ( "==" | "!=" ) comparison )*
+// comparison     -> term ( ( ">" | ">=" | "<" | "<=" ) term )*
+// term           -> factor ( ( "+" | "-" ) factor )*
+// factor         -> primary ( ( "*" | "/" ) primary )*
+// primary        -> INT | STRING | IDENTIFIER | "(" expression ")"
 
 ASTNode *parse_expression() {
-    return parse_equality();
+    return parse_logical_or();
+}
+
+ASTNode *parse_logical_or() {
+    ASTNode *expr = parse_logical_and();
+    while (current_token.type == TOKEN_OR) {
+        ASTNode *node = create_node(NODE_BINARY_EXPR, current_token.line);
+        node->data.binary_expr.left = expr;
+        node->data.binary_expr.operator = current_token.type;
+        advance_token(); // Consume operator
+        node->data.binary_expr.right = parse_logical_and();
+        expr = node;
+    }
+    return expr;
+}
+
+ASTNode *parse_logical_and() {
+    ASTNode *expr = parse_equality();
+    while (current_token.type == TOKEN_AND) {
+        ASTNode *node = create_node(NODE_BINARY_EXPR, current_token.line);
+        node->data.binary_expr.left = expr;
+        node->data.binary_expr.operator = current_token.type;
+        advance_token(); // Consume operator
+        node->data.binary_expr.right = parse_equality();
+        expr = node;
+    }
+    return expr;
 }
 
 ASTNode *parse_equality() {
@@ -869,6 +1009,43 @@ void print_colored_text(const char *color_name, const char *text) {
     printf("%s%s%s\n", color_code, text, ANSI_COLOR_RESET);
 }
 
+// Utility to read input from user
+Value read_user_input(const char *prompt) {
+    printf("%s", prompt);
+    fflush(stdout);
+    
+    char buffer[1024];
+    if (fgets(buffer, sizeof(buffer), stdin)) {
+        // Remove newline if present
+        size_t len = strlen(buffer);
+        if (len > 0 && buffer[len-1] == '\n') {
+            buffer[len-1] = '\0';
+        }
+        
+        // Try to parse as integer first
+        char *endptr;
+        long int_val = strtol(buffer, &endptr, 10);
+        if (*endptr == '\0' && endptr != buffer) {
+            // Successfully parsed as integer
+            Value result;
+            result.type = VALUE_INT;
+            result.data.int_val = (int)int_val;
+            return result;
+        } else {
+            // Treat as string
+            Value result;
+            result.type = VALUE_STRING;
+            result.data.string_val = strdup(buffer);
+            return result;
+        }
+    } else {
+        // Error reading input
+        Value result;
+        result.type = VALUE_NULL;
+        return result;
+    }
+}
+
 // Main evaluation function
 Value evaluate(ASTNode *node) {
     if (!node) {
@@ -905,6 +1082,51 @@ Value evaluate(ASTNode *node) {
             return result;
         }
         case NODE_BINARY_EXPR: {
+            // Handle short-circuit evaluation for logical operators
+            if (node->data.binary_expr.operator == TOKEN_AND) {
+                Value left_val = evaluate(node->data.binary_expr.left);
+                if (left_val.type != VALUE_INT) {
+                    fprintf(stderr, "Runtime Error [Line %d]: Logical AND requires integer operands.\n", node->line);
+                    exit(1);
+                }
+                if (left_val.data.int_val == 0) {
+                    // Short-circuit: if left is false, result is false
+                    result.type = VALUE_INT;
+                    result.data.int_val = 0;
+                    return result;
+                }
+                Value right_val = evaluate(node->data.binary_expr.right);
+                if (right_val.type != VALUE_INT) {
+                    fprintf(stderr, "Runtime Error [Line %d]: Logical AND requires integer operands.\n", node->line);
+                    exit(1);
+                }
+                result.type = VALUE_INT;
+                result.data.int_val = (right_val.data.int_val != 0) ? 1 : 0;
+                return result;
+            }
+            
+            if (node->data.binary_expr.operator == TOKEN_OR) {
+                Value left_val = evaluate(node->data.binary_expr.left);
+                if (left_val.type != VALUE_INT) {
+                    fprintf(stderr, "Runtime Error [Line %d]: Logical OR requires integer operands.\n", node->line);
+                    exit(1);
+                }
+                if (left_val.data.int_val != 0) {
+                    // Short-circuit: if left is true, result is true
+                    result.type = VALUE_INT;
+                    result.data.int_val = 1;
+                    return result;
+                }
+                Value right_val = evaluate(node->data.binary_expr.right);
+                if (right_val.type != VALUE_INT) {
+                    fprintf(stderr, "Runtime Error [Line %d]: Logical OR requires integer operands.\n", node->line);
+                    exit(1);
+                }
+                result.type = VALUE_INT;
+                result.data.int_val = (right_val.data.int_val != 0) ? 1 : 0;
+                return result;
+            }
+
             Value left_val = evaluate(node->data.binary_expr.left);
             Value right_val = evaluate(node->data.binary_expr.right);
 
@@ -1137,6 +1359,88 @@ Value evaluate(ASTNode *node) {
             }
             printf("-----------------------\n");
             break;
+        }
+        case NODE_INPUT_STMT: {
+            Value prompt_val = evaluate(node->data.input_stmt.prompt_expr);
+            char *prompt_str = NULL;
+            if (prompt_val.type == VALUE_STRING) {
+                prompt_str = prompt_val.data.string_val;
+            } else if (prompt_val.type == VALUE_INT) {
+                char buf[256];
+                snprintf(buf, sizeof(buf), "%d: ", prompt_val.data.int_val);
+                prompt_str = strdup(buf);
+            } else {
+                prompt_str = strdup("Input: ");
+            }
+            
+            Value input_val = read_user_input(prompt_str);
+            env_assign(node->data.input_stmt.var_name, input_val);
+            
+            if (prompt_val.type == VALUE_INT || prompt_val.type == VALUE_NULL) {
+                free(prompt_str);
+            } else {
+                free(prompt_val.data.string_val);
+            }
+            break;
+        }
+        case NODE_EVEN_STMT: {
+            Value expr_val = evaluate(node->data.even_odd_stmt.expression);
+            if (expr_val.type != VALUE_INT) {
+                fprintf(stderr, "Runtime Error [Line %d]: Even check requires an integer.\n", node->line);
+                exit(1);
+            }
+            result.type = VALUE_INT;
+            result.data.int_val = (expr_val.data.int_val % 2 == 0) ? 1 : 0;
+            return result;
+        }
+        case NODE_ODD_STMT: {
+            Value expr_val = evaluate(node->data.even_odd_stmt.expression);
+            if (expr_val.type != VALUE_INT) {
+                fprintf(stderr, "Runtime Error [Line %d]: Odd check requires an integer.\n", node->line);
+                exit(1);
+            }
+            result.type = VALUE_INT;
+            result.data.int_val = (expr_val.data.int_val % 2 != 0) ? 1 : 0;
+            return result;
+        }
+        case NODE_DELAY_STMT: {
+            Value ms_val = evaluate(node->data.delay_stmt.milliseconds_expr);
+            if (ms_val.type != VALUE_INT) {
+                fprintf(stderr, "Runtime Error [Line %d]: Delay requires an integer (milliseconds).\n", node->line);
+                exit(1);
+            }
+            int milliseconds = ms_val.data.int_val;
+            if (milliseconds > 0) {
+                usleep(milliseconds * 1000); // usleep takes microseconds
+            }
+            break;
+        }
+        case NODE_MATH_STMT: {
+            Value expr_val = evaluate(node->data.math_stmt.expression);
+            if (expr_val.type != VALUE_INT) {
+                fprintf(stderr, "Runtime Error [Line %d]: Math operation requires an integer.\n", node->line);
+                exit(1);
+            }
+            result.type = VALUE_INT;
+            switch (node->data.math_stmt.operation) {
+                case TOKEN_SQUARE:
+                    result.data.int_val = expr_val.data.int_val * expr_val.data.int_val;
+                    break;
+                case TOKEN_SQRT:
+                    if (expr_val.data.int_val < 0) {
+                        fprintf(stderr, "Runtime Error [Line %d]: Cannot take square root of negative number.\n", node->line);
+                        exit(1);
+                    }
+                    result.data.int_val = (int)sqrt((double)expr_val.data.int_val);
+                    break;
+                case TOKEN_ABS:
+                    result.data.int_val = abs(expr_val.data.int_val);
+                    break;
+                default:
+                    fprintf(stderr, "Runtime Error [Line %d]: Unknown math operation.\n", node->line);
+                    exit(1);
+            }
+            return result;
         }
         case NODE_PROGRAM:
         case NODE_BLOCK_STMT: {

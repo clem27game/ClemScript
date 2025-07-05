@@ -66,3 +66,19 @@ pattern = "**/*.{c,h}"
 
 [languages.c.languageServer]
 start = "ccls"
+
+[workflows]
+runButton = "Run ClemScript"
+
+[[workflows.workflow]]
+name = "Run ClemScript"
+author = 10543762
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "make -s"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "./main test.clem"
