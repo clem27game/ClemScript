@@ -1,3 +1,4 @@
+
 # ClemScript - Démonstration des nouvelles fonctionnalités
 
 Clem var Script x = 10;
@@ -31,14 +32,14 @@ Clem console Script -> "5 au carré : " + carre;
 Clem var Script racine = Clem math Script sqrt 16;
 Clem console Script -> "Racine de 16 : " + racine;
 
-Clem var Script absolu = Clem math Script abs 8;
-Clem console Script -> "Valeur absolue de 8 : " + absolu;
+Clem var Script absolu = Clem math Script abs -8;
+Clem console Script -> "Valeur absolue de -8 : " + absolu;
 
-# Délais (attention: ralentit l'exécution)
+# Délais
 Clem console Script -> "=== Démonstration des délais ===";
 Clem console Script -> "Avant délai...";
-Clem delay Script 1000;
-Clem console Script -> "Après 1 seconde de délai!";
+Clem delay Script 500;
+Clem console Script -> "Après délai!";
 
 # Boucle simple avec compteur croissant
 Clem console Script -> "=== Boucle de démonstration ===";
@@ -47,13 +48,13 @@ Clem for Script i Clem from Script 1 Clem to Script 3 Clem do Script {
 }
 
 # Simulation d'un compte à rebours
-Clem console Script -> "Compte à rebours:";
+Clem console Script -> "=== Compte à rebours ===";
 Clem var Script compte = 3;
-Clem console Script -> compte;
+Clem console Script -> "Compte : " + compte;
 compte = 2;
-Clem console Script -> compte;
+Clem console Script -> "Compte : " + compte;
 compte = 1;
-Clem console Script -> compte;
+Clem console Script -> "Compte : " + compte;
 Clem console Script -> "GO!";
 
 # Couleurs
