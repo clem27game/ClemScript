@@ -375,8 +375,7 @@ static char lexer_peek_char() {
 
 static char lexer_advance_char() {
     if (lexer_current_pos >= strlen(source_code)) return '\0';
-    char c = source_code[lexer_current_pos];
-    lexer_current_pos++;
+    char c = source_code[lexer_current_pos++];
     return c;
 }
 
@@ -951,14 +950,22 @@ ASTNode *parse_primary() {
         node = parse_expression();
         consume(TOKEN_RPAREN, ")");
     } else if (current_token.type == TOKEN_MINUS) {
-        // Handle negative numbers
+        // Handle unary minus (negative numbers and expressions)
         consume(TOKEN_MINUS, "-");
-        if (current_token.type == TOKEN_INT) {
+        ASTNode *operand = parse_primary();
+        if (operand->type == NODE_INT_LITERAL) {
+            // Direct negative number
             node = create_node(NODE_INT_LITERAL, node_line);
-            node->data.int_val = -atoi(current_token.lexeme);
-            consume(TOKEN_INT, "integer literal");
+            node->data.int_val = -operand->data.int_val;
+            free_ast_node(operand);
         } else {
-            syntax_error("expected integer after minus sign");
+            // Create unary minus expression
+            node = create_node(NODE_BINARY_EXPR, node_line);
+            ASTNode *zero_node = create_node(NODE_INT_LITERAL, node_line);
+            zero_node->data.int_val = 0;
+            node->data.binary_expr.left = zero_node;
+            node->data.binary_expr.operator = TOKEN_MINUS;
+            node->data.binary_expr.right = operand;
         }
     } else {
         syntax_error("expected integer, string, identifier, or '('");
@@ -1083,8 +1090,9 @@ Value evaluate(ASTNode *node) {
                 exit(1);
             }
             if (entry->value.type == VALUE_NULL) {
-                fprintf(stderr, "Runtime Error [Line %d]: Variable '%s' is not initialized\n", node->line, node->data.identifier_name);
-                exit(1);
+                // Initialize uninitialized variable to 0
+                entry->value.type = VALUE_INT;
+                entry->value.data.int_val = 0;
             }
             // Return a copy for strings to avoid dangling pointers if original is freed later
             if (entry->value.type == VALUE_STRING) {
@@ -1180,7 +1188,7 @@ Value evaluate(ASTNode *node) {
                 char *str_right = NULL;
                 
                 if (left_val.type == VALUE_STRING) {
-                    str_left = left_val.data.string_val;
+                    str_left = left_val.data.string_val ? left_val.data.string_val : strdup("");
                 } else if (left_val.type == VALUE_INT) {
                     char buf[32];
                     snprintf(buf, sizeof(buf), "%d", left_val.data.int_val);
@@ -1191,7 +1199,7 @@ Value evaluate(ASTNode *node) {
                 }
 
                 if (right_val.type == VALUE_STRING) {
-                    str_right = right_val.data.string_val;
+                    str_right = right_val.data.string_val ? right_val.data.string_val : strdup("");
                 } else if (right_val.type == VALUE_INT) {
                     char buf[32];
                     snprintf(buf, sizeof(buf), "%d", right_val.data.int_val);
@@ -1210,12 +1218,12 @@ Value evaluate(ASTNode *node) {
                 strcpy(new_str, str_left);
                 strcat(new_str, str_right);
 
-                // Free temporary strings generated from integers or original string values
-                if (left_val.type == VALUE_INT) free(str_left); 
-                else free(left_val.data.string_val); // Free original string if it was string type
+                // Free temporary strings generated from integers
+                if (left_val.type == VALUE_INT && str_left) free(str_left);
+                if (left_val.type == VALUE_STRING && left_val.data.string_val) free(left_val.data.string_val);
                 
-                if (right_val.type == VALUE_INT) free(str_right);
-                else free(right_val.data.string_val); // Free original string if it was string type
+                if (right_val.type == VALUE_INT && str_right) free(str_right);
+                if (right_val.type == VALUE_STRING && right_val.data.string_val) free(right_val.data.string_val);
 
                 result.type = VALUE_STRING;
                 result.data.string_val = new_str;
@@ -1224,6 +1232,9 @@ Value evaluate(ASTNode *node) {
 
             // For all other binary operations, both operands must be integers
             if (left_val.type != VALUE_INT || right_val.type != VALUE_INT) {
+                // Free any allocated string values before exiting
+                if (left_val.type == VALUE_STRING) free(left_val.data.string_val);
+                if (right_val.type == VALUE_STRING) free(right_val.data.string_val);
                 fprintf(stderr, "Runtime Error [Line %d]: Type mismatch in binary operation. Expected integers for non-concatenation operations.\n", node->line);
                 exit(1);
             }

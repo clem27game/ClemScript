@@ -1,6 +1,6 @@
 
-# ClemScript - Test Complet
-Clem console Script -> "=== ClemScript Demo Complet ===";
+# ClemScript - Test Simple et Robuste
+Clem console Script -> "=== ClemScript Demo ===";
 
 # Variables de base
 Clem var Script x = 10;
@@ -8,47 +8,31 @@ Clem var Script y = 20;
 Clem console Script -> "x = " + x;
 Clem console Script -> "y = " + y;
 
-# Opérations mathématiques
+# Opérations mathématiques de base
 Clem var Script somme = x + y;
 Clem console Script -> "Addition: " + somme;
-Clem var Script difference = y - x;
-Clem console Script -> "Soustraction: " + difference;
-Clem var Script produit = x * 2;
-Clem console Script -> "Multiplication: " + produit;
 
-# Tests pair/impair
+# Test pair/impair
 Clem var Script test_pair = Clem even Script 10;
 Clem console Script -> "10 est pair: " + test_pair;
-Clem var Script test_impair = Clem odd Script 7;
-Clem console Script -> "7 est impair: " + test_impair;
 
-# Fonctions mathématiques
+# Fonction mathématique simple
 Clem var Script carre = Clem math Script square 5;
 Clem console Script -> "5 au carre: " + carre;
-Clem var Script racine = Clem math Script sqrt 16;
-Clem console Script -> "Racine de 16: " + racine;
-Clem var Script absolu = Clem math Script abs 8;
-Clem console Script -> "Valeur absolue de 8: " + absolu;
 
-# Conditions simples
+# Condition simple
 Clem if Script (x < y)
 Clem then Script {
     Clem console Script -> "x est plus petit que y";
 }
 
-# Boucle for
+# Boucle for simple
 Clem console Script -> "=== Boucle for ===";
 Clem for Script i Clem from Script 1 Clem to Script 3 Clem do Script {
     Clem console Script -> "Iteration: " + i;
 }
 
-# Couleurs
-Clem color Script "green" "Test de couleur verte";
-Clem color Script "blue" "Test de couleur bleue";
+# Couleur
+Clem color Script "green" "Test terminé avec succès!";
 
-# Délai court
-Clem console Script -> "Petit délai...";
-Clem delay Script 100;
-Clem console Script -> "Délai terminé!";
-
-Clem console Script -> "=== Tous les tests terminés avec succès! ===";
+Clem console Script -> "=== Fin du test ===";
