@@ -1,4 +1,5 @@
 
+
 # ClemScript - Démonstration des nouvelles fonctionnalités
 
 Clem var Script x = 10;
@@ -18,26 +19,21 @@ Clem if Script (x < 5 || y > 15) Clem then Script {
 
 # Test des nombres pairs et impairs
 Clem console Script -> "=== Tests pair/impair ===";
-Clem var Script test_pair;
-test_pair = Clem even Script x;
+Clem var Script test_pair = Clem even Script x;
 Clem console Script -> "10 est pair : " + test_pair;
 
-Clem var Script test_impair;
-test_impair = Clem odd Script 7;
+Clem var Script test_impair = Clem odd Script 7;
 Clem console Script -> "7 est impair : " + test_impair;
 
 # Fonctions mathématiques
 Clem console Script -> "=== Fonctions mathématiques ===";
-Clem var Script carre;
-carre = Clem math Script square 5;
+Clem var Script carre = Clem math Script square 5;
 Clem console Script -> "5 au carré : " + carre;
 
-Clem var Script racine;
-racine = Clem math Script sqrt 16;
+Clem var Script racine = Clem math Script sqrt 16;
 Clem console Script -> "Racine de 16 : " + racine;
 
-Clem var Script absolu;
-absolu = Clem math Script abs (-8);
+Clem var Script absolu = Clem math Script abs (-8);
 Clem console Script -> "Valeur absolue de -8 : " + absolu;
 
 # Saisie utilisateur (décommentez pour tester interactivement)
@@ -55,15 +51,27 @@ Clem console Script -> "Valeur absolue de -8 : " + absolu;
 # Délais (attention: ralentit l'exécution)
 Clem console Script -> "=== Démonstration des délais ===";
 Clem console Script -> "Avant délai...";
-Clem delay Script 1000;  # 1 seconde
+Clem delay Script 1000;
 Clem console Script -> "Après 1 seconde de délai!";
 
-# Boucle avec délai pour effet visuel
-Clem console Script -> "Compte à rebours:";
-Clem for Script i Clem from Script 3 Clem to Script 1 Clem do Script {
-    Clem console Script -> i;
-    Clem delay Script 500;  # 0.5 seconde
+# Boucle simple avec compteur croissant
+Clem console Script -> "=== Boucle de démonstration ===";
+Clem for Script i Clem from Script 1 Clem to Script 3 Clem do Script {
+    Clem console Script -> "Compteur : " + i;
+    Clem delay Script 500;
 }
+
+# Simulation d'un compte à rebours avec boucle normale
+Clem console Script -> "Compte à rebours:";
+Clem var Script compte = 3;
+Clem console Script -> compte;
+Clem delay Script 500;
+compte = 2;
+Clem console Script -> compte;
+Clem delay Script 500;
+compte = 1;
+Clem console Script -> compte;
+Clem delay Script 500;
 Clem console Script -> "GO!";
 
 # Couleurs
