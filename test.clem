@@ -72,4 +72,4 @@ Clem color Script "blue" "ClemScript est maintenant plus puissant!";
 
 # Quiz avec les nouvelles fonctionnalités
 Clem quiz Script "Combien font 5 au carré?" 
-    Clem options Script "20" "25" "30" Clem answer Script 2;
+    Clem options Script "20" "25" "30" Clem answer Script 1;

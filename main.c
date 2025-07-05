@@ -1072,6 +1072,10 @@ Value evaluate(ASTNode *node) {
                 fprintf(stderr, "Runtime Error [Line %d]: Undefined variable '%s'\n", node->line, node->data.identifier_name);
                 exit(1);
             }
+            if (entry->value.type == VALUE_NULL) {
+                fprintf(stderr, "Runtime Error [Line %d]: Variable '%s' is not initialized\n", node->line, node->data.identifier_name);
+                exit(1);
+            }
             // Return a copy for strings to avoid dangling pointers if original is freed later
             if (entry->value.type == VALUE_STRING) {
                 result.type = VALUE_STRING;
@@ -1352,10 +1356,10 @@ Value evaluate(ASTNode *node) {
             }
             while (getchar() != '\n'); // Clear the newline character left by scanf
 
-            if (user_answer == correct_idx) {
+            if (user_answer - 1 == correct_idx) {
                 printf(ANSI_COLOR_GREEN "Correct!\n" ANSI_COLOR_RESET);
             } else {
-                printf(ANSI_COLOR_RED "Incorrect. The correct answer was %d.\n" ANSI_COLOR_RESET, correct_idx);
+                printf(ANSI_COLOR_RED "Incorrect. The correct answer was %d.\n" ANSI_COLOR_RESET, correct_idx + 1);
             }
             printf("-----------------------\n");
             break;
