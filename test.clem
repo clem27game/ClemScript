@@ -8,11 +8,13 @@ Clem console Script -> "=== Fonctionnalités de base ===";
 Clem console Script -> "La somme est : " + (x + y);
 
 # Nouvelles conditions renforcées avec && et ||
-Clem if Script (x > 5 && y < 25) Clem then Script {
+Clem if Script (x > 5 && y < 25) 
+Clem then Script {
     Clem console Script -> "X est > 5 ET Y est < 25";
 }
 
-Clem if Script (x < 5 || y > 15) Clem then Script {
+Clem if Script (x < 5 || y > 15)
+Clem then Script {
     Clem console Script -> "X est < 5 OU Y est > 15";
 }
 
