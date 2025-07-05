@@ -452,11 +452,8 @@ Token lexer_get_token_struct() {
         return (Token){type, lexeme, token_line};
     }
 
-    // Numbers (including negative numbers)
-    if (isdigit(c) || (c == '-' && isdigit(source_code[lexer_current_pos + 1]))) {
-        if (c == '-') {
-            lexer_advance_char(); // Consume the minus sign
-        }
+    // Numbers
+    if (isdigit(c)) {
         while (isdigit(lexer_peek_char())) {
             lexer_advance_char();
         }
@@ -487,12 +484,6 @@ Token lexer_get_token_struct() {
             if (lexer_peek_char() == '>') {
                 lexer_advance_char();
                 return (Token){TOKEN_ARROW, strdup("->"), token_line};
-            }
-            // Check if this is a negative number
-            if (isdigit(lexer_peek_char())) {
-                // Reset position to handle as number
-                lexer_current_pos--;
-                return lexer_get_token_struct();
             }
             return (Token){TOKEN_MINUS, strdup("-"), token_line};
         case '*': return (Token){TOKEN_ASTERISK, strdup("*"), token_line};
@@ -965,6 +956,16 @@ ASTNode *parse_primary() {
         consume(TOKEN_LPAREN, "(");
         node = parse_expression();
         consume(TOKEN_RPAREN, ")");
+    } else if (current_token.type == TOKEN_MINUS) {
+        // Handle negative numbers
+        consume(TOKEN_MINUS, "-");
+        if (current_token.type == TOKEN_INT) {
+            node = create_node(NODE_INT_LITERAL, node_line);
+            node->data.int_val = -atoi(current_token.lexeme);
+            consume(TOKEN_INT, "integer literal");
+        } else {
+            syntax_error("expected integer after minus sign");
+        }
     } else {
         syntax_error("expected integer, string, identifier, or '('");
     }
