@@ -668,15 +668,10 @@ ASTNode *parse_clem_statement() {
         ASTNode *if_node = create_node(NODE_IF_STMT, stmt_line);
         if_node->data.if_stmt.condition = parse_expression();
         
-        // Vérifier si on a un retour à la ligne après la condition
-        if (current_token.type == TOKEN_CLEM) {
-            consume(TOKEN_CLEM, "Clem");
-            consume(TOKEN_THEN, "then");
-            consume(TOKEN_SCRIPT, "Script");
-            if_node->data.if_stmt.then_block = parse_block();
-        } else {
-            syntax_error("'Clem then Script' after if condition");
-        }
+        consume(TOKEN_CLEM, "Clem");
+        consume(TOKEN_THEN, "then");
+        consume(TOKEN_SCRIPT, "Script");
+        if_node->data.if_stmt.then_block = parse_block();
         
         // Check for optional "Clem else Script" block
         // If current token is TOKEN_CLEM, and the NEXT token is TOKEN_ELSE
@@ -1150,6 +1145,34 @@ Value evaluate(ASTNode *node) {
             Value left_val = evaluate(node->data.binary_expr.left);
             Value right_val = evaluate(node->data.binary_expr.right);
 
+            // Handle comparison operators first
+            if (node->data.binary_expr.operator == TOKEN_EQ ||
+                node->data.binary_expr.operator == TOKEN_NEQ ||
+                node->data.binary_expr.operator == TOKEN_LT ||
+                node->data.binary_expr.operator == TOKEN_LE ||
+                node->data.binary_expr.operator == TOKEN_GT ||
+                node->data.binary_expr.operator == TOKEN_GE) {
+                
+                if (left_val.type != VALUE_INT || right_val.type != VALUE_INT) {
+                    fprintf(stderr, "Runtime Error [Line %d]: Comparison operators require integer operands.\n", node->line);
+                    exit(1);
+                }
+                
+                int left_int = left_val.data.int_val;
+                int right_int = right_val.data.int_val;
+                
+                result.type = VALUE_INT;
+                switch (node->data.binary_expr.operator) {
+                    case TOKEN_EQ: result.data.int_val = (left_int == right_int); break;
+                    case TOKEN_NEQ: result.data.int_val = (left_int != right_int); break;
+                    case TOKEN_LT: result.data.int_val = (left_int < right_int); break;
+                    case TOKEN_LE: result.data.int_val = (left_int <= right_int); break;
+                    case TOKEN_GT: result.data.int_val = (left_int > right_int); break;
+                    case TOKEN_GE: result.data.int_val = (left_int >= right_int); break;
+                }
+                return result;
+            }
+            
             // Handle string concatenation for TOKEN_PLUS
             if (node->data.binary_expr.operator == TOKEN_PLUS &&
                 (left_val.type == VALUE_STRING || right_val.type == VALUE_STRING)) {
@@ -1209,7 +1232,7 @@ Value evaluate(ASTNode *node) {
             int left_int = left_val.data.int_val;
             int right_int = right_val.data.int_val;
 
-            result.type = VALUE_INT; // All arithmetic and comparison results are integers (0 or 1 for boolean)
+            result.type = VALUE_INT; // All arithmetic results are integers
             switch (node->data.binary_expr.operator) {
                 case TOKEN_PLUS: result.data.int_val = left_int + right_int; break;
                 case TOKEN_MINUS: result.data.int_val = left_int - right_int; break;
@@ -1221,12 +1244,6 @@ Value evaluate(ASTNode *node) {
                     }
                     result.data.int_val = left_int / right_int;
                     break;
-                case TOKEN_EQ: result.data.int_val = (left_int == right_int); break;
-                case TOKEN_NEQ: result.data.int_val = (left_int != right_int); break;
-                case TOKEN_LT: result.data.int_val = (left_int < right_int); break;
-                case TOKEN_LE: result.data.int_val = (left_int <= right_int); break;
-                case TOKEN_GT: result.data.int_val = (left_int > right_int); break;
-                case TOKEN_GE: result.data.int_val = (left_int >= right_int); break;
                 default:
                     fprintf(stderr, "Runtime Error [Line %d]: Unknown binary operator.\n", node->line);
                     exit(1);

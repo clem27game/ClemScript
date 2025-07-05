@@ -9,9 +9,12 @@ Clem console Script -> "x = " + x;
 Clem console Script -> "y = " + y;
 
 # Opérations mathématiques
-Clem console Script -> "Addition: " + (x + y);
-Clem console Script -> "Soustraction: " + (y - x);
-Clem console Script -> "Multiplication: " + (x * 2);
+Clem var Script somme = x + y;
+Clem console Script -> "Addition: " + somme;
+Clem var Script difference = y - x;
+Clem console Script -> "Soustraction: " + difference;
+Clem var Script produit = x * 2;
+Clem console Script -> "Multiplication: " + produit;
 
 # Tests pair/impair
 Clem var Script test_pair = Clem even Script 10;
@@ -24,11 +27,11 @@ Clem var Script carre = Clem math Script square 5;
 Clem console Script -> "5 au carre: " + carre;
 Clem var Script racine = Clem math Script sqrt 16;
 Clem console Script -> "Racine de 16: " + racine;
-Clem var Script absolu = Clem math Script abs -8;
-Clem console Script -> "Valeur absolue de -8: " + absolu;
+Clem var Script absolu = Clem math Script abs 8;
+Clem console Script -> "Valeur absolue de 8: " + absolu;
 
 # Conditions simples
-Clem if Script (x < y) 
+Clem if Script (x < y)
 Clem then Script {
     Clem console Script -> "x est plus petit que y";
 }
