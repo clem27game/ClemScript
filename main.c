@@ -676,10 +676,16 @@ ASTNode *parse_clem_statement() {
         consume(TOKEN_SCRIPT, "Script");
         ASTNode *if_node = create_node(NODE_IF_STMT, stmt_line);
         if_node->data.if_stmt.condition = parse_expression();
-        consume(TOKEN_CLEM, "Clem");
-        consume(TOKEN_THEN, "then");
-        consume(TOKEN_SCRIPT, "Script");
-        if_node->data.if_stmt.then_block = parse_block();
+        
+        // Vérifier si on a un retour à la ligne après la condition
+        if (current_token.type == TOKEN_CLEM) {
+            consume(TOKEN_CLEM, "Clem");
+            consume(TOKEN_THEN, "then");
+            consume(TOKEN_SCRIPT, "Script");
+            if_node->data.if_stmt.then_block = parse_block();
+        } else {
+            syntax_error("'Clem then Script' after if condition");
+        }
         
         // Check for optional "Clem else Script" block
         // If current token is TOKEN_CLEM, and the NEXT token is TOKEN_ELSE
