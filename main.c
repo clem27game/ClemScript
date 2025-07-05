@@ -452,8 +452,11 @@ Token lexer_get_token_struct() {
         return (Token){type, lexeme, token_line};
     }
 
-    // Numbers
-    if (isdigit(c)) {
+    // Numbers (including negative numbers)
+    if (isdigit(c) || (c == '-' && isdigit(source_code[lexer_current_pos + 1]))) {
+        if (c == '-') {
+            lexer_advance_char(); // Consume the minus sign
+        }
         while (isdigit(lexer_peek_char())) {
             lexer_advance_char();
         }
@@ -484,6 +487,12 @@ Token lexer_get_token_struct() {
             if (lexer_peek_char() == '>') {
                 lexer_advance_char();
                 return (Token){TOKEN_ARROW, strdup("->"), token_line};
+            }
+            // Check if this is a negative number
+            if (isdigit(lexer_peek_char())) {
+                // Reset position to handle as number
+                lexer_current_pos--;
+                return lexer_get_token_struct();
             }
             return (Token){TOKEN_MINUS, strdup("-"), token_line};
         case '*': return (Token){TOKEN_ASTERISK, strdup("*"), token_line};

@@ -20,7 +20,7 @@ Clem if Script (x < 5 || y > 15) Clem then Script {
 # Test des nombres pairs et impairs
 Clem console Script -> "=== Tests pair/impair ===";
 Clem var Script test_pair;
-test_pair = Clem even Script x;
+test_pair = Clem even Script 10;
 Clem console Script -> "10 est pair : " + test_pair;
 
 Clem var Script test_impair;
@@ -39,7 +39,7 @@ Clem console Script -> "Racine de 16 : " + racine;
 
 Clem var Script absolu;
 absolu = Clem math Script abs 8;
-Clem console Script -> "Valeur absolue de -8 : " + absolu;
+Clem console Script -> "Valeur absolue de 8 : " + absolu;
 
 # Saisie utilisateur (décommentez pour tester interactivement)
 # Clem console Script -> "=== Saisie utilisateur ===";
