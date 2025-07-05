@@ -1,0 +1,24 @@
+Clem var Script x = 10;
+Clem var Script y = 20;
+
+Clem console Script -> "La somme est : " + (x + y);
+
+Clem if Script (x < y) Clem then Script {
+    Clem console Script -> "X est moins que Y";
+} Clem else Script {
+    Clem console Script -> "X n'est pas moins que Y";
+}
+
+Clem while Script (x < 15) Clem do Script {
+    Clem console Script -> "X est encore : " + x;
+    x = x + 1;
+}
+
+Clem for Script i Clem from Script 0 Clem to Script 5 Clem do Script {
+    Clem console Script -> "Index : " + i;
+}
+
+Clem color Script "blue" "Ceci est un texte bleu";
+
+Clem quiz Script "Quelle est la capitale de la France?" 
+    Clem options Script "Paris" "Londres" "Berlin" Clem answer Script 1;
