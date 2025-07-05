@@ -1,38 +1,26 @@
-
-# ClemScript - Test Simple et Robuste
-Clem console Script -> "=== ClemScript Demo ===";
-
-# Variables de base
 Clem var Script x = 10;
 Clem var Script y = 20;
-Clem console Script -> "x = " + x;
-Clem console Script -> "y = " + y;
 
-# Opérations mathématiques de base
-Clem var Script somme = x + y;
-Clem console Script -> "Addition: " + somme;
+Clem console Script -> "La somme est : " + (x + y);
 
-# Test pair/impair
-Clem var Script test_pair = Clem even Script 10;
-Clem console Script -> "10 est pair: " + test_pair;
-
-# Fonction mathématique simple
-Clem var Script carre = Clem math Script square 5;
-Clem console Script -> "5 au carre: " + carre;
-
-# Condition simple
-Clem if Script (x < y)
-Clem then Script {
-    Clem console Script -> "x est plus petit que y";
+Clem if Script (x < y) Clem then Script {
+    Clem console Script -> "X est moins que Y";
+} Clem else Script {
+    Clem console Script -> "X n'est pas moins que Y";
 }
 
-# Boucle for simple
-Clem console Script -> "=== Boucle for ===";
-Clem for Script i Clem from Script 1 Clem to Script 3 Clem do Script {
-    Clem console Script -> "Iteration: " + i;
+Clem while Script (x < 15) Clem do Script {
+    Clem console Script -> "X est encore : " + x;
+    x = x + 1;
 }
 
-# Couleur
-Clem color Script "green" "Test terminé avec succès!";
+Clem for Script i Clem from Script 0 Clem to Script 5 Clem do Script {
+    Clem console Script -> "Index : " + i;
+}
 
-Clem console Script -> "=== Fin du test ===";
+# Utilisation de couleur
+Clem color Script "red" "Ceci est un texte rouge";
+
+# Quiz exemple
+Clem quiz Script "Quelle est la capitale de la France?" 
+    Clem options Script "Paris" "Londres" "Berlin" Clem answer Script 1;

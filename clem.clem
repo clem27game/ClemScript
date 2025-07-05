@@ -1,0 +1,35 @@
+Clem var Script age;
+Clem input Script age "Entrez votre âge: ";
+
+Clem var Script est_pair;
+est_pair = Clem even Script age;  // Vérifie si l'âge est pair
+
+Clem if Script (est_pair) Clem then Script {
+    Clem console Script -> "Votre âge est pair.";
+} Clem else Script {
+    Clem console Script -> "Votre âge est impair.";
+}
+
+Clem var Script carre;
+carre = Clem math Script square age; // Calculer le carré de l'âge
+Clem console Script -> "Le carré de votre âge est : " + carre;
+
+Clem var Script racine;
+racine = Clem math Script sqrt age; // Calculer la racine carrée de l'âge
+Clem console Script -> "La racine carrée de votre âge est : " + racine;
+
+Clem delay Script 1000; // Pause de 1 seconde
+
+Clem color Script "green" "Tous les calculs sont terminés avec succès!"; // Affiche le message en vert
+
+Clem var Script x = 5;
+Clem var Script y = 10;
+
+Clem if Script (x < y && racine > 0) Clem then Script {
+    Clem console Script -> "X est moins que Y et la racine est positive.";
+} Clem else Script {
+    Clem console Script -> "Condition non remplie.";
+}
+
+Clem quiz Script "Quel est le résultat de 5 + 3 ?" 
+    Clem options Script "6" "8" "10" Clem answer Script 2;
