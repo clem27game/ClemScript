@@ -3,10 +3,12 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>   // For srand, rand, nanosleep (or usleep)
+#include <math.h>   // For mathematical functions
 #ifdef _WIN32
 #include <windows.h> // For Sleep on Windows
 #else
 #include <unistd.h>  // For usleep on POSIX systems
+#include <strings.h> // For strcasecmp on POSIX systems
 #endif
 
 // --- Constants and Enums ---
@@ -34,7 +36,7 @@ typedef enum {
     TOKEN_COLOR, TOKEN_QUIZ, TOKEN_OPTIONS, TOKEN_ANSWER,
     // NEW KEYWORDS
     TOKEN_INPUT, TOKEN_EVEN, TOKEN_ODD, TOKEN_DELAY, TOKEN_AND, TOKEN_OR,
-    TOKEN_NOT, TOKEN_LENGTH, TOKEN_RANDOM,
+    TOKEN_NOT, TOKEN_LENGTH, TOKEN_RANDOM, TOKEN_MATH,
 
     // Operators
     TOKEN_PLUS, TOKEN_MINUS, TOKEN_ASTERISK, TOKEN_SLASH, TOKEN_ASSIGN,
@@ -77,7 +79,8 @@ typedef enum {
     NODE_IS_ODD_EXPR,
     NODE_DELAY_STMT,
     NODE_LENGTH_EXPR,
-    NODE_RANDOM_EXPR
+    NODE_RANDOM_EXPR,
+    NODE_MATH_EXPR
 } NodeType;
 
 // Forward declaration for ASTNode
@@ -195,6 +198,12 @@ typedef struct {
     struct ASTNode *max_expr;
 } RandomExpr;
 
+// NEW: Math Expression: Clem math Script <operation> <number_expr>
+typedef struct {
+    char *operation; // "square", "sqrt", "abs"
+    struct ASTNode *number_expr;
+} MathExpr;
+
 
 // Generic AST Node
 typedef struct ASTNode {
@@ -221,6 +230,7 @@ typedef struct ASTNode {
         DelayStmt delay_stmt;
         LengthExpr length_expr;
         RandomExpr random_expr;
+        MathExpr math_expr;
     } data;
 } ASTNode;
 
@@ -366,6 +376,10 @@ void free_ast_node(ASTNode *node) {
             free_ast_node(node->data.random_expr.min_expr);
             free_ast_node(node->data.random_expr.max_expr);
             break;
+        case NODE_MATH_EXPR: // NEW
+            free(node->data.math_expr.operation);
+            free_ast_node(node->data.math_expr.number_expr);
+            break;
         case NODE_STRING_LITERAL:
         case NODE_IDENTIFIER:
             free(node->data.string_val); // This union member also covers identifier_name
@@ -458,6 +472,7 @@ static TokenType lexer_check_keyword(const char *text) {
     if (strcmp(text, "not") == 0) return TOKEN_NOT;
     if (strcmp(text, "length") == 0) return TOKEN_LENGTH;
     if (strcmp(text, "random") == 0) return TOKEN_RANDOM;
+    if (strcmp(text, "math") == 0) return TOKEN_MATH;
     return TOKEN_IDENTIFIER;
 }
 
@@ -1009,6 +1024,18 @@ ASTNode *parse_primary() {
             node->data.random_expr.min_expr = parse_expression();
             node->data.random_expr.max_expr = parse_expression();
             return node;
+        } else if (next_type == TOKEN_MATH) {
+            consume(TOKEN_CLEM, "Clem");
+            consume(TOKEN_MATH, "math");
+            consume(TOKEN_SCRIPT, "Script");
+            node = create_node(NODE_MATH_EXPR, node_line);
+            if (current_token.type != TOKEN_IDENTIFIER) {
+                syntax_error("math operation (square, sqrt, abs)");
+            }
+            node->data.math_expr.operation = strdup(current_token.lexeme);
+            consume(TOKEN_IDENTIFIER, "math operation");
+            node->data.math_expr.number_expr = parse_expression();
+            return node;
         } else {
             // If it was Clem but not a recognized special expression, it must be part of a statement
             // or an error. Re-add Clem to be consumed by parse_clem_statement
@@ -1531,6 +1558,31 @@ Value evaluate(ASTNode *node) {
             
             result.type = VALUE_INT;
             result.data.int_val = rand() % (max - min + 1) + min;
+            return result;
+        }
+        case NODE_MATH_EXPR: { // NEW
+            Value num_val = evaluate(node->data.math_expr.number_expr);
+            if (num_val.type != VALUE_INT) {
+                fprintf(stderr, "Runtime Error [Line %d]: Math operations require an integer operand.\n", node->line);
+                exit(1);
+            }
+            result.type = VALUE_INT;
+            
+            if (strcmp(node->data.math_expr.operation, "square") == 0) {
+                result.data.int_val = num_val.data.int_val * num_val.data.int_val;
+            } else if (strcmp(node->data.math_expr.operation, "sqrt") == 0) {
+                if (num_val.data.int_val < 0) {
+                    fprintf(stderr, "Runtime Error [Line %d]: Cannot calculate square root of negative number.\n", node->line);
+                    exit(1);
+                }
+                result.data.int_val = (int)sqrt(num_val.data.int_val);
+            } else if (strcmp(node->data.math_expr.operation, "abs") == 0) {
+                result.data.int_val = abs(num_val.data.int_val);
+            } else {
+                fprintf(stderr, "Runtime Error [Line %d]: Unknown math operation '%s'. Supported: square, sqrt, abs.\n", 
+                        node->line, node->data.math_expr.operation);
+                exit(1);
+            }
             return result;
         }
         case NODE_PROGRAM:
