@@ -1,3 +1,4 @@
+#define _GNU_SOURCE  // For strdup and strndup
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
