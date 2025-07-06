@@ -1,4 +1,3 @@
-
 #define _GNU_SOURCE  // For strdup and strndup
 #include <stdio.h>
 #include <stdlib.h>
@@ -428,12 +427,9 @@ static TokenType lexer_check_keyword(const char *text) {
     if (strcmp(text, "answer") == 0) return TOKEN_ANSWER;
     // NEW KEYWORDS
     if (strcmp(text, "input") == 0) return TOKEN_INPUT;
+    if (strcmp(text, "delay") == 0) return TOKEN_DELAY;
     if (strcmp(text, "even") == 0) return TOKEN_EVEN;
     if (strcmp(text, "odd") == 0) return TOKEN_ODD;
-    if (strcmp(text, "delay") == 0) return TOKEN_DELAY;
-    if (strcmp(text, "and") == 0) return TOKEN_AND;
-    if (strcmp(text, "or") == 0) return TOKEN_OR;
-    if (strcmp(text, "not") == 0) return TOKEN_NOT;
     if (strcmp(text, "math") == 0) return TOKEN_MATH;
     return TOKEN_IDENTIFIER;
 }
@@ -541,7 +537,7 @@ void advance_token() {
 TokenType peek_token_type() {
     int original_pos = lexer_current_pos;
     int original_line = lexer_current_line;
-    
+
     Token peeked_token = lexer_get_token_struct();
     TokenType type = peeked_token.type;
 
@@ -628,6 +624,34 @@ ASTNode *parse_statement() {
     return stmt;
 }
 
+// Helper to check if the next sequence of tokens matches 'Clem KEYWORD Script'
+// without advancing the main parser token stream.
+// Returns true if matched, false otherwise.
+// This function handles its own lexer state.
+bool check_clem_keyword_script_sequence(TokenType keyword_type) {
+    int original_pos = lexer_current_pos;
+    int original_line = lexer_current_line;
+    Token temp_token = current_token; // Copy of the current token
+
+    bool matched = false;
+
+    if (temp_token.type == TOKEN_CLEM) {
+        advance_token();
+        if (current_token.type == keyword_type) {
+            advance_token();
+             if (current_token.type == TOKEN_SCRIPT){
+                matched = true;
+             }
+        }
+    }
+
+   // Restore lexer state
+    lexer_current_pos = original_pos;
+    lexer_current_line = original_line;
+    current_token = temp_token; // Restore the current token
+    return matched;
+}
+
 ASTNode *parse_clem_statement() {
     int stmt_line = current_token.line;
     consume(TOKEN_CLEM, "Clem"); // TOKEN_CLEM must be current_token when this function is called
@@ -665,7 +689,7 @@ ASTNode *parse_clem_statement() {
         consume(TOKEN_THEN, "then");
         consume(TOKEN_SCRIPT, "Script");
         if_node->data.if_stmt.then_block = parse_block();
-        
+
         if (current_token.type == TOKEN_CLEM && peek_token_type() == TOKEN_ELSE) { // Check for "Clem else Script"
             consume(TOKEN_CLEM, "Clem");
             consume(TOKEN_ELSE, "else");
@@ -715,7 +739,7 @@ ASTNode *parse_clem_statement() {
         }
         char *color_name = strdup(current_token.lexeme); // Capture the color name (e.g. "red" or "blue")
         consume(current_token.type, "color name or string literal"); // Consume the IDENTIFIER or STRING token
-        
+
         ASTNode *color_node = create_node(NODE_COLOR_STMT, stmt_line);
         color_node->data.color_stmt.color_name = color_name;
         color_node->data.color_stmt.text_expression = parse_expression();
@@ -740,7 +764,7 @@ ASTNode *parse_clem_statement() {
                 perror("Failed to reallocate options for quiz");
                 exit(1);
             }
-            quiz_node->data.quiz_stmt.option_exprs[quiz_node->data.quiz_stmt.num_options++] = parse_primary(); // Should be a string literal
+            quiz_data.quiz_stmt.option_exprs[quiz_node->data.quiz_stmt.num_options++] = parse_primary(); // Should be a string literal
         }
         if (quiz_node->data.quiz_stmt.num_options == 0) {
             error("Quiz must have at least one option (string literal).");
@@ -753,17 +777,15 @@ ASTNode *parse_clem_statement() {
             error("Quiz answer must be an integer literal (option index).");
         }
         return quiz_node;
-    } else if (current_token.type == TOKEN_INPUT) { // New: Clem input Script <variable> <prompt>
+    } else if (current_token.type == TOKEN_INPUT) { // New: Clem input Script variable prompt
         consume(TOKEN_INPUT, "input");
         consume(TOKEN_SCRIPT, "Script");
         if (current_token.type != TOKEN_IDENTIFIER) {
             syntax_error("variable name for input");
         }
-        char *var_name = strdup(current_token.lexeme);
-        consume(TOKEN_IDENTIFIER, "variable name");
-        
         ASTNode *input_node = create_node(NODE_INPUT_STMT, stmt_line);
-        input_node->data.input_stmt.variable_name = var_name;
+        input_node->data.input_stmt.variable_name = strdup(current_token.lexeme);
+        consume(TOKEN_IDENTIFIER, "variable name");
         input_node->data.input_stmt.prompt_expr = parse_expression();
         return input_node;
     } else if (current_token.type == TOKEN_DELAY) { // New: Clem delay Script <milliseconds>
@@ -831,7 +853,7 @@ ASTNode *parse_logical_or() {
         consume(TOKEN_CLEM, "Clem");
         consume(TOKEN_OR, "or");
         consume(TOKEN_SCRIPT, "Script"); // Consume 'Script' for "Clem or Script"
-        
+
         ASTNode *node = create_node(NODE_BINARY_EXPR, op_line);
         node->data.binary_expr.left = expr;
         node->data.binary_expr.operator = TOKEN_OR;
@@ -939,27 +961,21 @@ ASTNode *parse_primary() {
     else if (current_token.type == TOKEN_CLEM) {
         // Peek the next token to determine which ClemScript expression it is
         TokenType next_type = peek_token_type();
-        if (next_type == TOKEN_EVEN) {
-            consume(TOKEN_CLEM, "Clem");
-            consume(TOKEN_EVEN, "even");
-            consume(TOKEN_SCRIPT, "Script");
-            node = create_node(NODE_UNARY_EXPR, node_line);
+        if (check_clem_keyword_script_sequence(TOKEN_EVEN)) {
+            consume(TOKEN_CLEM, "Clem"); consume(TOKEN_EVEN, "even"); consume(TOKEN_SCRIPT, "Script");
+            ASTNode *node = create_node(NODE_UNARY_EXPR, node_line);
             node->data.unary_expr.operator = TOKEN_EVEN;
-            node->data.unary_expr.operand = parse_expression();
+            node->data.unary_expr.operand = parse_expression(); // Allow full expression as argument
             return node;
-        } else if (next_type == TOKEN_ODD) {
-            consume(TOKEN_CLEM, "Clem");
-            consume(TOKEN_ODD, "odd");
-            consume(TOKEN_SCRIPT, "Script");
-            node = create_node(NODE_UNARY_EXPR, node_line);
+        } else if (check_clem_keyword_script_sequence(TOKEN_ODD)) {
+            consume(TOKEN_CLEM, "Clem"); consume(TOKEN_ODD, "odd"); consume(TOKEN_SCRIPT, "Script");
+            ASTNode *node = create_node(NODE_UNARY_EXPR, node_line);
             node->data.unary_expr.operator = TOKEN_ODD;
             node->data.unary_expr.operand = parse_expression();
             return node;
-        } else if (next_type == TOKEN_MATH) {
-            consume(TOKEN_CLEM, "Clem");
-            consume(TOKEN_MATH, "math");
-            consume(TOKEN_SCRIPT, "Script");
-            node = create_node(NODE_MATH_STMT, node_line);
+        } else if (check_clem_keyword_script_sequence(TOKEN_MATH)) {
+            consume(TOKEN_CLEM, "Clem"); consume(TOKEN_MATH, "math"); consume(TOKEN_SCRIPT, "Script");
+            ASTNode *node = create_node(NODE_MATH_STMT, node_line);
             if (current_token.type != TOKEN_IDENTIFIER) {
                 syntax_error("math operation (square, sqrt, abs)");
             }
@@ -1081,7 +1097,7 @@ Value evaluate(ASTNode *node) {
                     fprintf(stderr, "Runtime Error [Line %d]: Logical operations 'and'/'or' require integer (boolean) operands.\n", node->line);
                     exit(1);
                 }
-                
+
                 result.type = VALUE_INT;
                 if (node->data.binary_expr.operator == TOKEN_AND) {
                     if (left_val.data.int_val == 0) { // Short-circuit if left is false
@@ -1116,10 +1132,10 @@ Value evaluate(ASTNode *node) {
             // Handle string concatenation for TOKEN_PLUS
             if (node->data.binary_expr.operator == TOKEN_PLUS &&
                 (left_val.type == VALUE_STRING || right_val.type == VALUE_STRING)) {
-                
+
                 char *str_left = NULL;
                 char *str_right = NULL;
-                
+
                 // Convert left operand to string
                 if (left_val.type == VALUE_STRING) {
                     str_left = left_val.data.string_val;
@@ -1157,7 +1173,7 @@ Value evaluate(ASTNode *node) {
                 // Free temporary strings generated from integers or original string values
                 if (left_val.type == VALUE_INT) free(str_left); 
                 else free(left_val.data.string_val); // Free original string if it was string type
-                
+
                 if (right_val.type == VALUE_INT) free(str_right);
                 else free(right_val.data.string_val); // Free original string if it was string type
 
@@ -1337,7 +1353,7 @@ Value evaluate(ASTNode *node) {
         case NODE_COLOR_STMT: {
             // The color name is already a strdup'd C string from parsing
             char *color_name_str = node->data.color_stmt.color_name; 
-            
+
             Value text_val = evaluate(node->data.color_stmt.text_expression);
             char *text_to_print = NULL;
             if (text_val.type == VALUE_STRING) {
@@ -1352,7 +1368,7 @@ Value evaluate(ASTNode *node) {
             }
 
             print_colored_text(color_name_str, text_to_print);
-            
+
             if (text_val.type == VALUE_INT) free(text_to_print); // Free if it was converted from int
             else free(text_val.data.string_val); // Free the duplicated string if it was string type
             break;
@@ -1388,6 +1404,7 @@ Value evaluate(ASTNode *node) {
             printf("Enter your answer (1-%d): ", node->data.quiz_stmt.num_options);
             // Loop until valid integer input is received
             while (scanf("%d", &user_answer) != 1 || user_answer < 1 || user_answer > node->data.quiz_stmt.num_options) {
+                ```text
                 printf("Invalid input. Please enter a number between 1 and %d: ", node->data.quiz_stmt.num_options);
                 while (getchar() != '\n'); // Clear invalid input
             }

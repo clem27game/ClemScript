@@ -1,4 +1,5 @@
 
+
 Clem var Script age;
 Clem input Script age "Entrez votre âge: ";
 
@@ -38,3 +39,4 @@ Clem if Script (x < y Clem and Script racine > 0) Clem then Script {
 
 Clem quiz Script "Quel est le résultat de 5 + 3 ?" 
     Clem options Script "6" "8" "10" Clem answer Script 2;
+
