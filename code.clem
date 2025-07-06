@@ -1,0 +1,20 @@
+
+Clem var Script age;
+Clem input Script age "Entrez votre âge: ";
+
+
+Clem delay Script 1000;
+
+Clem color Script "green" "Tous les calculs sont terminés avec succès!";
+
+Clem var Script x = 5;
+Clem var Script y = 10;
+
+Clem if Script (x < y Clem and Script racine > 0) Clem then Script {
+    Clem console Script -> "X est moins que Y et la racine est positive.";
+} Clem else Script {
+    Clem console Script -> "Condition non remplie.";
+}
+
+Clem quiz Script "Quel est le résultat de 5 + 3 ?" 
+    Clem options Script "6" "8" "10" Clem answer Script 2;

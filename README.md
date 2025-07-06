@@ -8,7 +8,7 @@ ClemScript est un langage de programmation simple et interactif qui permet aux u
 Pour exécuter un fichier ClemScript, utilisez la commande suivante :
 
 ```bash
-./main <filename.clem>
+./ClemScript/main <filename.clem>
 ```
 Assurez-vous que le fichier contient le code ClemScript valide.
 
@@ -59,22 +59,6 @@ Clem input Script nom "Entrez votre nom: ";
 Clem console Script -> "Bonjour " + nom + "!";
 ```
 
-**Vérification Pair/Impair** : Testez si un nombre est pair ou impair.
-
-```
-Clem var Script est_pair;
-est_pair = Clem even Script 10;  # Retourne 1 (vrai)
-
-Clem var Script est_impair;
-est_impair = Clem odd Script 7;   # Retourne 1 (vrai)
-```
-
-**Délais** : Pausez l'exécution pendant un nombre de millisecondes spécifié.
-
-```
-Clem delay Script 1000;  # Pause d'1 seconde
-```
-
 **Fonctions Mathématiques** : Effectuez des calculs mathématiques de base.
 
 ```
@@ -102,22 +86,13 @@ Clem quiz Script "Quelle est la capitale de la France?"
     Clem options Script "Paris" "Londres" "Berlin" Clem answer Script 1;
  ```
 
-## Nouvelles Fonctionnalités ✨
-
 ### Opérateurs Logiques
 - `&&` : ET logique (AND)
 - `||` : OU logique (OR)
 
 ### Fonctions Utiles
 - `Clem input Script <variable> <prompt>` : Saisie utilisateur
-- `Clem even Script <nombre>` : Vérifie si un nombre est pair
-- `Clem odd Script <nombre>` : Vérifie si un nombre est impair
-- `Clem delay Script <millisecondes>` : Pause l'exécution
-- `Clem math Script <opération> <nombre>` : Fonctions mathématiques
-  - `square` : Carré d'un nombre
-  - `sqrt` : Racine carrée
-  - `abs` : Valeur absolue
-
+- 
 ### Couleurs Supportées
 - `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
 
@@ -134,18 +109,6 @@ Clem if Script (x > 5 && y < 25) Clem then Script {
     Clem console Script -> "Conditions multiples satisfaites!";
 }
 
-# Test pair/impair
-Clem var Script est_pair;
-est_pair = Clem even Script x;
-Clem console Script -> "10 est pair : " + est_pair;
-
-# Fonctions mathématiques
-Clem var Script carre;
-carre = Clem math Script square 5;
-Clem console Script -> "5 au carré = " + carre;
-
-# Délai et couleur
-Clem delay Script 500;
 Clem color Script "green" "Exécution terminée avec succès!";
 ```
 
@@ -153,18 +116,3 @@ Clem color Script "green" "Exécution terminée avec succès!";
 Aucune installation spécifique n'est requise. Il suffit de cloner ce dépôt et de suivre les instructions ci-dessus pour exécuter vos fichiers ClemScript.
 
 **Bonne expérimentation avec mon langage de programmation** 😉
-
-## Guide d'Apprentissage
-
-1. **Commencez par les bases** : Variables, affichage, conditions simples
-2. **Explorez les nouvelles fonctionnalités** : Opérateurs logiques, fonctions mathématiques
-3. **Créez des programmes interactifs** : Utilisez `input` pour interagir avec l'utilisateur
-4. **Ajoutez des effets visuels** : Couleurs et délais pour des programmes plus attractifs
-5. **Testez vos connaissances** : Créez des quiz personnalisés
-
-### Exemple d'Exercice
-Créez un programme qui :
-1. Demande l'âge de l'utilisateur
-2. Vérifie s'il est pair ou impair
-3. Calcule son carré
-4. Affiche le résultat en couleur avec un délai
