@@ -431,6 +431,9 @@ static TokenType lexer_check_keyword(const char *text) {
     if (strcmp(text, "even") == 0) return TOKEN_EVEN;
     if (strcmp(text, "odd") == 0) return TOKEN_ODD;
     if (strcmp(text, "math") == 0) return TOKEN_MATH;
+    if (strcmp(text, "and") == 0) return TOKEN_AND;
+    if (strcmp(text, "or") == 0) return TOKEN_OR;
+    if (strcmp(text, "not") == 0) return TOKEN_NOT;
     return TOKEN_IDENTIFIER;
 }
 
@@ -764,7 +767,7 @@ ASTNode *parse_clem_statement() {
                 perror("Failed to reallocate options for quiz");
                 exit(1);
             }
-            quiz_data.quiz_stmt.option_exprs[quiz_node->data.quiz_stmt.num_options++] = parse_primary(); // Should be a string literal
+            quiz_node->data.quiz_stmt.option_exprs[quiz_node->data.quiz_stmt.num_options++] = parse_primary(); // Should be a string literal
         }
         if (quiz_node->data.quiz_stmt.num_options == 0) {
             error("Quiz must have at least one option (string literal).");
@@ -960,7 +963,6 @@ ASTNode *parse_primary() {
     // NEW EXPRESSION TYPES
     else if (current_token.type == TOKEN_CLEM) {
         // Peek the next token to determine which ClemScript expression it is
-        TokenType next_type = peek_token_type();
         if (check_clem_keyword_script_sequence(TOKEN_EVEN)) {
             consume(TOKEN_CLEM, "Clem"); consume(TOKEN_EVEN, "even"); consume(TOKEN_SCRIPT, "Script");
             ASTNode *node = create_node(NODE_UNARY_EXPR, node_line);
@@ -1404,7 +1406,6 @@ Value evaluate(ASTNode *node) {
             printf("Enter your answer (1-%d): ", node->data.quiz_stmt.num_options);
             // Loop until valid integer input is received
             while (scanf("%d", &user_answer) != 1 || user_answer < 1 || user_answer > node->data.quiz_stmt.num_options) {
-                ```text
                 printf("Invalid input. Please enter a number between 1 and %d: ", node->data.quiz_stmt.num_options);
                 while (getchar() != '\n'); // Clear invalid input
             }
