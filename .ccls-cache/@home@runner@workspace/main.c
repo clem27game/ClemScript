@@ -237,7 +237,7 @@ typedef struct ASTNode {
 
 // --- Global Variables (Lexer State) ---
 char *source_code;
-int lexer_current_pos;
+size_t lexer_current_pos;
 int lexer_current_line;
 
 // Parser's current token
@@ -414,19 +414,22 @@ void free_environment(EnvEntry *env) {
 // --- Lexer ---
 
 static char lexer_peek_char() {
-    if (lexer_current_pos >= strlen(source_code)) return '\0';
+    size_t source_len = strlen(source_code);
+    if (lexer_current_pos >= source_len) return '\0';
     return source_code[lexer_current_pos];
 }
 
 static char lexer_advance_char() {
-    if (lexer_current_pos >= strlen(source_code)) return '\0';
+    size_t source_len = strlen(source_code);
+    if (lexer_current_pos >= source_len) return '\0';
     char c = source_code[lexer_current_pos];
     lexer_current_pos++;
     return c;
 }
 
 static void lexer_skip_whitespace_and_comments() {
-    while (lexer_current_pos < strlen(source_code)) {
+    size_t source_len = strlen(source_code);
+    while (lexer_current_pos < source_len) {
         char c = lexer_peek_char();
         if (isspace(c)) {
             if (c == '\n') lexer_current_line++;
@@ -481,7 +484,8 @@ static TokenType lexer_check_keyword(const char *text) {
 Token lexer_get_token_struct() {
     lexer_skip_whitespace_and_comments();
 
-    if (lexer_current_pos >= strlen(source_code)) {
+    size_t source_len = strlen(source_code);
+    if (lexer_current_pos >= source_len) {
         return (Token){TOKEN_EOF, strdup("EOF"), lexer_current_line};
     }
 
@@ -547,6 +551,7 @@ Token lexer_get_token_struct() {
                 return (Token){TOKEN_NEQ, strdup("!="), token_line};
             }
             error("Unexpected character '!'");
+            break; // Add break to prevent fall-through
         case '<':
             if (lexer_peek_char() == '=') {
                 lexer_advance_char();
@@ -1446,7 +1451,7 @@ Value evaluate(ASTNode *node) {
             }
             int correct_idx = correct_answer_val.data.int_val;
 
-            int user_answer;
+            int user_answer = 0; // Initialize to prevent warning
             printf("Enter your answer (1-%d): ", node->data.quiz_stmt.num_options);
             // Loop until valid integer input is received
             char input_buffer[256]; // A buffer for reading line input
@@ -1627,7 +1632,10 @@ int main(int argc, char *argv[]) {
         fclose(file);
         return 1;
     }
-    fread(source_code, 1, length, file);
+    size_t bytes_read = fread(source_code, 1, length, file);
+    if (bytes_read != (size_t)length) {
+        fprintf(stderr, "Warning: Could not read entire file\n");
+    }
     source_code[length] = '\0'; // Null-terminate
     fclose(file);
 
