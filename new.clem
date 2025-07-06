@@ -1,0 +1,15 @@
+Clem color Script "green" "Génération d'un nombre aléatoire...";
+Clem random valeur Script 1 100;
+
+Clem color Script "blue" "Texte aléatoire:";
+Clem random text Script "Bonjour", "Salut", "Coucou", "Hello", "Hi";
+
+Clem var Script choix;
+Clem input Script choix "Choisissez votre aventure (forêt/montagne/océan): ";
+
+Clem interact Script choix "forêt", "montagne", "océan" Clem then Script {
+    Clem color Script "green" "Vous avez choisi une aventure valide!";
+    Clem random text Script "Vous explorez la nature", "Une grande aventure vous attend", "Le paysage est magnifique";
+} Clem else Script {
+    Clem color Script "red" "Choix non reconnu. Essayez forêt, montagne ou océan.";
+}
