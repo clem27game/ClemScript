@@ -38,6 +38,7 @@ typedef enum {
     TOKEN_INPUT, TOKEN_DELAY, // New
     TOKEN_EVEN, TOKEN_ODD, TOKEN_MATH, // New math functions
     TOKEN_AND, TOKEN_OR, TOKEN_NOT, // New logical operators
+    TOKEN_INTERACT, TOKEN_RANDOM, TOKEN_VALEUR, TOKEN_TEXT, TOKEN_COMMA, // New interactive and random functions
 
     // Operators
     TOKEN_PLUS, TOKEN_MINUS, TOKEN_ASTERISK, TOKEN_SLASH, TOKEN_ASSIGN,
@@ -75,6 +76,9 @@ typedef enum {
     NODE_INPUT_STMT, // New
     NODE_DELAY_STMT, // New
     NODE_MATH_STMT,  // New
+    NODE_INTERACT_STMT, // New
+    NODE_RANDOM_VALEUR_STMT, // New
+    NODE_RANDOM_TEXT_STMT, // New
     NODE_BLOCK_STMT // Represents a block of statements { ... }
 } NodeType;
 
@@ -178,6 +182,27 @@ typedef struct {
     struct ASTNode *number_expr;
 } MathStmt;
 
+// Interact Statement: Clem interact Script <condition_variable> <choice1> <choice2> ... Clem then Script { ... } [Clem else Script { ... }]
+typedef struct {
+    char *condition_variable; // Variable to compare against
+    struct ASTNode **choice_exprs; // Array of string choices
+    int num_choices;
+    struct ASTNode *then_block;
+    struct ASTNode *else_block; // Optional
+} InteractStmt;
+
+// Random Valeur Statement: Clem random valeur Script <min> <max>
+typedef struct {
+    struct ASTNode *min_expr;
+    struct ASTNode *max_expr;
+} RandomValeurStmt;
+
+// Random Text Statement: Clem random text Script <text1>, <text2>, ...
+typedef struct {
+    struct ASTNode **text_exprs; // Array of text expressions
+    int num_texts;
+} RandomTextStmt;
+
 // Block Statement: { ... }
 typedef struct {
     struct ASTNode **statements; // Array of statements (Nodes)
@@ -205,6 +230,9 @@ typedef struct ASTNode {
         InputStmt input_stmt; // New
         DelayStmt delay_stmt; // New
         MathStmt math_stmt;   // New
+        InteractStmt interact_stmt; // New
+        RandomValeurStmt random_valeur_stmt; // New
+        RandomTextStmt random_text_stmt; // New
         BlockStmt block_stmt; // For program and blocks
     } data;
 } ASTNode;
@@ -343,6 +371,25 @@ void free_ast_node(ASTNode *node) {
             free(node->data.math_stmt.operation);
             free_ast_node(node->data.math_stmt.number_expr);
             break;
+        case NODE_INTERACT_STMT: // New
+            free(node->data.interact_stmt.condition_variable);
+            for (int i = 0; i < node->data.interact_stmt.num_choices; ++i) {
+                free_ast_node(node->data.interact_stmt.choice_exprs[i]);
+            }
+            free(node->data.interact_stmt.choice_exprs);
+            free_ast_node(node->data.interact_stmt.then_block);
+            if (node->data.interact_stmt.else_block) free_ast_node(node->data.interact_stmt.else_block);
+            break;
+        case NODE_RANDOM_VALEUR_STMT: // New
+            free_ast_node(node->data.random_valeur_stmt.min_expr);
+            free_ast_node(node->data.random_valeur_stmt.max_expr);
+            break;
+        case NODE_RANDOM_TEXT_STMT: // New
+            for (int i = 0; i < node->data.random_text_stmt.num_texts; ++i) {
+                free_ast_node(node->data.random_text_stmt.text_exprs[i]);
+            }
+            free(node->data.random_text_stmt.text_exprs);
+            break;
         case NODE_STRING_LITERAL:
         case NODE_IDENTIFIER:
             free(node->data.string_val); // This union member also covers identifier_name
@@ -434,6 +481,10 @@ static TokenType lexer_check_keyword(const char *text) {
     if (strcmp(text, "and") == 0) return TOKEN_AND;
     if (strcmp(text, "or") == 0) return TOKEN_OR;
     if (strcmp(text, "not") == 0) return TOKEN_NOT;
+    if (strcmp(text, "interact") == 0) return TOKEN_INTERACT;
+    if (strcmp(text, "random") == 0) return TOKEN_RANDOM;
+    if (strcmp(text, "valeur") == 0) return TOKEN_VALEUR;
+    if (strcmp(text, "text") == 0) return TOKEN_TEXT;
     return TOKEN_IDENTIFIER;
 }
 
@@ -524,6 +575,7 @@ Token lexer_get_token_struct() {
         case '{': return (Token){TOKEN_LBRACE, strdup("{"), token_line};
         case '}': return (Token){TOKEN_RBRACE, strdup("}"), token_line};
         case ';': return (Token){TOKEN_SEMICOLON, strdup(";"), token_line};
+        case ',': return (Token){TOKEN_COMMA, strdup(","), token_line};
         default:
             fprintf(stderr, "Lexical Error [Line %d]: Unexpected character '%c'\n", token_line, c);
             exit(1);
@@ -797,9 +849,106 @@ ASTNode *parse_clem_statement() {
         ASTNode *delay_node = create_node(NODE_DELAY_STMT, stmt_line);
         delay_node->data.delay_stmt.milliseconds_expr = parse_expression();
         return delay_node;
+    } else if (current_token.type == TOKEN_INTERACT) { // New: Clem interact Script <variable> <choice1> <choice2> ... Clem then Script { ... }
+        consume(TOKEN_INTERACT, "interact");
+        consume(TOKEN_SCRIPT, "Script");
+        if (current_token.type != TOKEN_IDENTIFIER) {
+            syntax_error("variable name for interact");
+        }
+        ASTNode *interact_node = create_node(NODE_INTERACT_STMT, stmt_line);
+        interact_node->data.interact_stmt.condition_variable = strdup(current_token.lexeme);
+        consume(TOKEN_IDENTIFIER, "variable name");
+        
+        // Parse choices (list of string literal expressions)
+        interact_node->data.interact_stmt.choice_exprs = NULL;
+        interact_node->data.interact_stmt.num_choices = 0;
+        while (current_token.type == TOKEN_STRING) {
+            interact_node->data.interact_stmt.choice_exprs = (ASTNode **)realloc(
+                interact_node->data.interact_stmt.choice_exprs,
+                sizeof(ASTNode *) * (interact_node->data.interact_stmt.num_choices + 1)
+            );
+            if (!interact_node->data.interact_stmt.choice_exprs) {
+                perror("Failed to reallocate choices for interact");
+                exit(1);
+            }
+            interact_node->data.interact_stmt.choice_exprs[interact_node->data.interact_stmt.num_choices++] = parse_primary();
+            
+            // Optional comma
+            if (current_token.type == TOKEN_COMMA) {
+                consume(TOKEN_COMMA, ",");
+            }
+        }
+        if (interact_node->data.interact_stmt.num_choices == 0) {
+            error("Interact must have at least one choice (string literal).");
+        }
+        
+        consume(TOKEN_CLEM, "Clem");
+        consume(TOKEN_THEN, "then");
+        consume(TOKEN_SCRIPT, "Script");
+        interact_node->data.interact_stmt.then_block = parse_block();
+        
+        if (current_token.type == TOKEN_CLEM && peek_token_type() == TOKEN_ELSE) {
+            consume(TOKEN_CLEM, "Clem");
+            consume(TOKEN_ELSE, "else");
+            consume(TOKEN_SCRIPT, "Script");
+            interact_node->data.interact_stmt.else_block = parse_block();
+        } else {
+            interact_node->data.interact_stmt.else_block = NULL;
+        }
+        return interact_node;
+    } else if (current_token.type == TOKEN_RANDOM) { // New: Clem random valeur/text Script
+        consume(TOKEN_RANDOM, "random");
+        if (current_token.type == TOKEN_VALEUR) {
+            consume(TOKEN_VALEUR, "valeur");
+            consume(TOKEN_SCRIPT, "Script");
+            ASTNode *random_valeur_node = create_node(NODE_RANDOM_VALEUR_STMT, stmt_line);
+            random_valeur_node->data.random_valeur_stmt.min_expr = parse_expression();
+            random_valeur_node->data.random_valeur_stmt.max_expr = parse_expression();
+            return random_valeur_node;
+        } else if (current_token.type == TOKEN_TEXT) {
+            consume(TOKEN_TEXT, "text");
+            consume(TOKEN_SCRIPT, "Script");
+            ASTNode *random_text_node = create_node(NODE_RANDOM_TEXT_STMT, stmt_line);
+            
+            // Parse text choices
+            random_text_node->data.random_text_stmt.text_exprs = NULL;
+            random_text_node->data.random_text_stmt.num_texts = 0;
+            
+            do {
+                random_text_node->data.random_text_stmt.text_exprs = (ASTNode **)realloc(
+                    random_text_node->data.random_text_stmt.text_exprs,
+                    sizeof(ASTNode *) * (random_text_node->data.random_text_stmt.num_texts + 1)
+                );
+                if (!random_text_node->data.random_text_stmt.text_exprs) {
+                    perror("Failed to reallocate texts for random text");
+                    exit(1);
+                }
+                
+                if (current_token.type == TOKEN_STRING) {
+                    random_text_node->data.random_text_stmt.text_exprs[random_text_node->data.random_text_stmt.num_texts++] = parse_primary();
+                } else if (current_token.type == TOKEN_IDENTIFIER) {
+                    random_text_node->data.random_text_stmt.text_exprs[random_text_node->data.random_text_stmt.num_texts++] = parse_primary();
+                } else {
+                    error("Expected string or identifier for random text choice.");
+                }
+                
+                if (current_token.type == TOKEN_COMMA) {
+                    consume(TOKEN_COMMA, ",");
+                } else {
+                    break;
+                }
+            } while (random_text_node->data.random_text_stmt.num_texts < 13); // Limit to 13 texts
+            
+            if (random_text_node->data.random_text_stmt.num_texts == 0) {
+                error("Random text must have at least one text choice.");
+            }
+            return random_text_node;
+        } else {
+            syntax_error("'valeur' or 'text' after random");
+        }
     }
 
-    syntax_error("valid ClemScript statement keyword (console, var, if, while, for, color, quiz, input, delay)");
+    syntax_error("valid ClemScript statement keyword (console, var, if, while, for, color, quiz, input, delay, interact, random)");
     return NULL; // Should not reach here
 }
 
@@ -1457,6 +1606,80 @@ Value evaluate(ASTNode *node) {
             #else
                 usleep(milliseconds * 1000); // milliseconds to microseconds
             #endif
+            break;
+        }
+        case NODE_INTERACT_STMT: { // New
+            EnvEntry *var_entry = env_lookup(node->data.interact_stmt.condition_variable);
+            if (!var_entry) {
+                fprintf(stderr, "Runtime Error [Line %d]: Undefined variable '%s' for interact condition.\n", node->line, node->data.interact_stmt.condition_variable);
+                exit(1);
+            }
+            
+            if (var_entry->value.type != VALUE_STRING) {
+                fprintf(stderr, "Runtime Error [Line %d]: Interact condition variable must be a string.\n", node->line);
+                exit(1);
+            }
+            
+            bool choice_found = false;
+            for (int i = 0; i < node->data.interact_stmt.num_choices; ++i) {
+                Value choice_val = evaluate(node->data.interact_stmt.choice_exprs[i]);
+                if (choice_val.type == VALUE_STRING) {
+                    if (strcasecmp(var_entry->value.data.string_val, choice_val.data.string_val) == 0) {
+                        choice_found = true;
+                        free(choice_val.data.string_val);
+                        break;
+                    }
+                    free(choice_val.data.string_val);
+                }
+            }
+            
+            if (choice_found) {
+                evaluate(node->data.interact_stmt.then_block);
+            } else if (node->data.interact_stmt.else_block) {
+                evaluate(node->data.interact_stmt.else_block);
+            }
+            break;
+        }
+        case NODE_RANDOM_VALEUR_STMT: { // New
+            Value min_val = evaluate(node->data.random_valeur_stmt.min_expr);
+            Value max_val = evaluate(node->data.random_valeur_stmt.max_expr);
+            
+            if (min_val.type != VALUE_INT || max_val.type != VALUE_INT) {
+                fprintf(stderr, "Runtime Error [Line %d]: Random valeur min and max must be integers.\n", node->line);
+                exit(1);
+            }
+            
+            int min = min_val.data.int_val;
+            int max = max_val.data.int_val;
+            
+            if (min > max) {
+                int temp = min;
+                min = max;
+                max = temp;
+            }
+            
+            int random_value = min + (rand() % (max - min + 1));
+            printf("%d\n", random_value);
+            break;
+        }
+        case NODE_RANDOM_TEXT_STMT: { // New
+            if (node->data.random_text_stmt.num_texts == 0) {
+                fprintf(stderr, "Runtime Error [Line %d]: No texts available for random selection.\n", node->line);
+                exit(1);
+            }
+            
+            int random_index = rand() % node->data.random_text_stmt.num_texts;
+            Value text_val = evaluate(node->data.random_text_stmt.text_exprs[random_index]);
+            
+            if (text_val.type == VALUE_STRING) {
+                printf("%s\n", text_val.data.string_val);
+                free(text_val.data.string_val);
+            } else if (text_val.type == VALUE_INT) {
+                printf("%d\n", text_val.data.int_val);
+            } else {
+                fprintf(stderr, "Runtime Error [Line %d]: Random text must be a string or integer.\n", node->line);
+                exit(1);
+            }
             break;
         }
         case NODE_PROGRAM:

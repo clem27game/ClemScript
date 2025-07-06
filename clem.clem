@@ -15,25 +15,22 @@ Clem var Script carre;
 carre = Clem math Script square age;
 Clem console Script -> "Le carré de votre âge est : " + carre;
 
-Clem var Script racine;
-racine = Clem math Script sqrt age;
-Clem console Script -> "La racine carrée de votre âge est : " + racine;
-
-Clem var Script absolu;
-absolu = Clem math Script abs age;
-Clem console Script -> "La valeur absolue de votre âge est : " + absolu;
-
 Clem delay Script 1000;
 
-Clem color Script "green" "Tous les calculs sont terminés avec succès!";
+Clem color Script "green" "Génération d'un nombre aléatoire...";
+Clem random valeur Script 1 100;
 
-Clem var Script x = 5;
-Clem var Script y = 10;
+Clem color Script "blue" "Texte aléatoire:";
+Clem random text Script "Bonjour", "Salut", "Coucou", "Hello", "Hi";
 
-Clem if Script (x < y Clem and Script racine > 0) Clem then Script {
-    Clem console Script -> "X est moins que Y et la racine est positive.";
+Clem var Script choix;
+Clem input Script choix "Choisissez votre aventure (forêt/montagne/océan): ";
+
+Clem interact Script choix "forêt", "montagne", "océan" Clem then Script {
+    Clem color Script "green" "Vous avez choisi une aventure valide!";
+    Clem random text Script "Vous explorez la nature", "Une grande aventure vous attend", "Le paysage est magnifique";
 } Clem else Script {
-    Clem console Script -> "Condition non remplie.";
+    Clem color Script "red" "Choix non reconnu. Essayez forêt, montagne ou océan.";
 }
 
 Clem quiz Script "Quel est le résultat de 5 + 3 ?" 
