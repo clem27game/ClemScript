@@ -1,16 +1,17 @@
+
 #define _GNU_SOURCE  // For strdup and strndup
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <time.h>   // For srand, rand, nanosleep (or usleep)
-#include <math.h>   // For mathematical functions
+#include <math.h>
+#include <time.h>
 #ifdef _WIN32
-#include <windows.h> // For Sleep on Windows
+#include <windows.h> // For Sleep
 #else
-#include <unistd.h>  // For usleep on POSIX systems
-#include <strings.h> // For strcasecmp on POSIX systems
+#include <unistd.h>  // For usleep
 #endif
+#include <stdbool.h> // For bool type
 
 // --- Constants and Enums ---
 
@@ -35,9 +36,9 @@ typedef enum {
     TOKEN_CLEM, TOKEN_SCRIPT, TOKEN_CONSOLE, TOKEN_VAR, TOKEN_IF, TOKEN_THEN,
     TOKEN_ELSE, TOKEN_WHILE, TOKEN_DO, TOKEN_FOR, TOKEN_FROM, TOKEN_TO,
     TOKEN_COLOR, TOKEN_QUIZ, TOKEN_OPTIONS, TOKEN_ANSWER,
-    // NEW KEYWORDS
-    TOKEN_INPUT, TOKEN_EVEN, TOKEN_ODD, TOKEN_DELAY, TOKEN_AND, TOKEN_OR,
-    TOKEN_NOT, TOKEN_LENGTH, TOKEN_RANDOM, TOKEN_MATH,
+    TOKEN_INPUT, TOKEN_DELAY, // New
+    TOKEN_EVEN, TOKEN_ODD, TOKEN_MATH, // New math functions
+    TOKEN_AND, TOKEN_OR, TOKEN_NOT, // New logical operators
 
     // Operators
     TOKEN_PLUS, TOKEN_MINUS, TOKEN_ASTERISK, TOKEN_SLASH, TOKEN_ASSIGN,
@@ -63,8 +64,7 @@ typedef enum {
     NODE_STRING_LITERAL,
     NODE_IDENTIFIER,
     NODE_BINARY_EXPR,
-    // NEW: Unary expression for NOT
-    NODE_UNARY_EXPR,
+    NODE_UNARY_EXPR, // For 'not', 'even', 'odd'
     NODE_CONSOLE_STMT,
     NODE_VAR_DECL,
     NODE_ASSIGN_STMT,
@@ -73,15 +73,10 @@ typedef enum {
     NODE_FOR_STMT,
     NODE_COLOR_STMT,
     NODE_QUIZ_STMT,
-    NODE_BLOCK_STMT, // Represents a block of statements { ... }
-    // NEW STATEMENT/EXPRESSION TYPES
-    NODE_INPUT_EXPR, // An expression that takes input and returns a string
-    NODE_IS_EVEN_EXPR,
-    NODE_IS_ODD_EXPR,
-    NODE_DELAY_STMT,
-    NODE_LENGTH_EXPR,
-    NODE_RANDOM_EXPR,
-    NODE_MATH_EXPR
+    NODE_INPUT_STMT, // New
+    NODE_DELAY_STMT, // New
+    NODE_MATH_STMT,  // New
+    NODE_BLOCK_STMT // Represents a block of statements { ... }
 } NodeType;
 
 // Forward declaration for ASTNode
@@ -102,16 +97,16 @@ typedef struct {
     } data;
 } Value;
 
-// Binary Expression (existing, also used for logical AND/OR)
+// Binary Expression
 typedef struct {
     struct ASTNode *left;
     TokenType operator; // +, -, *, /, ==, !=, <, >, <=, >=, AND, OR
     struct ASTNode *right;
 } BinaryExpr;
 
-// NEW: Unary Expression (for NOT)
+// Unary Expression (for 'not', 'even', 'odd')
 typedef struct {
-    TokenType operator; // NOT
+    TokenType operator; // NOT, EVEN, ODD
     struct ASTNode *operand;
 } UnaryExpr;
 
@@ -167,44 +162,28 @@ typedef struct {
     struct ASTNode *correct_answer_expr; // Integer literal expression (Node holding int literal)
 } QuizStmt;
 
+// Input Statement: Clem input Script <variable> <prompt>
+typedef struct {
+    char *variable_name;        // Name of the variable to store input
+    struct ASTNode *prompt_expr; // Expression for the prompt string
+} InputStmt;
+
+// Delay Statement: Clem delay Script <milliseconds_expression>
+typedef struct {
+    struct ASTNode *milliseconds_expr;
+} DelayStmt;
+
+// Math Statement: Clem math Script <operation> <number_expression>
+typedef struct {
+    char *operation; // "square", "sqrt", "abs"
+    struct ASTNode *number_expr;
+} MathStmt;
+
 // Block Statement: { ... }
 typedef struct {
     struct ASTNode **statements; // Array of statements (Nodes)
     int num_statements;
 } BlockStmt;
-
-// NEW: Input Expression: Clem input Script <prompt_expression>
-typedef struct {
-    struct ASTNode *prompt_expr;
-} InputExpr;
-
-// NEW: Even/Odd Expression: Clem even/odd Script <number_expression>
-typedef struct {
-    struct ASTNode *number_expr;
-} EvenOddExpr;
-
-// NEW: Delay Statement: Clem delay Script <milliseconds_expression>
-typedef struct {
-    struct ASTNode *milliseconds_expr;
-} DelayStmt;
-
-// NEW: Length Expression: Clem length Script <string_expression>
-typedef struct {
-    struct ASTNode *string_expr;
-} LengthExpr;
-
-// NEW: Random Expression: Clem random Script <min_expr> <max_expr>
-typedef struct {
-    struct ASTNode *min_expr;
-    struct ASTNode *max_expr;
-} RandomExpr;
-
-// NEW: Math Expression: Clem math Script <operation> <number_expr>
-typedef struct {
-    char *operation; // "square", "sqrt", "abs"
-    struct ASTNode *number_expr;
-} MathExpr;
-
 
 // Generic AST Node
 typedef struct ASTNode {
@@ -215,7 +194,7 @@ typedef struct ASTNode {
         char *string_val; // For NODE_STRING_LITERAL
         char *identifier_name; // For NODE_IDENTIFIER
         BinaryExpr binary_expr;
-        UnaryExpr unary_expr; // NEW for NOT
+        UnaryExpr unary_expr; // New
         ConsoleStmt console_stmt;
         VarDecl var_decl;
         AssignStmt assign_stmt;
@@ -224,20 +203,16 @@ typedef struct ASTNode {
         ForStmt for_stmt;
         ColorStmt color_stmt;
         QuizStmt quiz_stmt;
+        InputStmt input_stmt; // New
+        DelayStmt delay_stmt; // New
+        MathStmt math_stmt;   // New
         BlockStmt block_stmt; // For program and blocks
-        // NEW
-        InputExpr input_expr;
-        EvenOddExpr even_odd_expr;
-        DelayStmt delay_stmt;
-        LengthExpr length_expr;
-        RandomExpr random_expr;
-        MathExpr math_expr;
     } data;
 } ASTNode;
 
 // --- Global Variables (Lexer State) ---
 char *source_code;
-size_t lexer_current_pos;
+int lexer_current_pos;
 int lexer_current_line;
 
 // Parser's current token
@@ -256,12 +231,10 @@ EnvEntry *global_env = NULL;
 ASTNode *parse_program();
 ASTNode *parse_statement();
 ASTNode *parse_clem_statement();
-// Updated expression parsing hierarchy
-ASTNode *parse_expression();       // Lowest precedence, starts with logical_or
+ASTNode *parse_expression();
 ASTNode *parse_logical_or();
 ASTNode *parse_logical_and();
-ASTNode *parse_logical_not();      // Handles unary NOT
-ASTNode *parse_equality();
+ASTNode *parse_logical_not();
 ASTNode *parse_comparison();
 ASTNode *parse_term();
 ASTNode *parse_factor();
@@ -319,7 +292,7 @@ void free_ast_node(ASTNode *node) {
             free_ast_node(node->data.binary_expr.left);
             free_ast_node(node->data.binary_expr.right);
             break;
-        case NODE_UNARY_EXPR: // NEW
+        case NODE_UNARY_EXPR: // New
             free_ast_node(node->data.unary_expr.operand);
             break;
         case NODE_CONSOLE_STMT:
@@ -336,7 +309,7 @@ void free_ast_node(ASTNode *node) {
         case NODE_IF_STMT:
             free_ast_node(node->data.if_stmt.condition);
             free_ast_node(node->data.if_stmt.then_block);
-            free_ast_node(node->data.if_stmt.else_block);
+            if (node->data.if_stmt.else_block) free_ast_node(node->data.if_stmt.else_block);
             break;
         case NODE_WHILE_STMT:
             free_ast_node(node->data.while_stmt.condition);
@@ -360,26 +333,16 @@ void free_ast_node(ASTNode *node) {
             free(node->data.quiz_stmt.option_exprs);
             free_ast_node(node->data.quiz_stmt.correct_answer_expr);
             break;
-        case NODE_INPUT_EXPR: // NEW
-            free_ast_node(node->data.input_expr.prompt_expr);
+        case NODE_INPUT_STMT: // New
+            free(node->data.input_stmt.variable_name);
+            free_ast_node(node->data.input_stmt.prompt_expr);
             break;
-        case NODE_IS_EVEN_EXPR: // NEW
-        case NODE_IS_ODD_EXPR: // NEW
-            free_ast_node(node->data.even_odd_expr.number_expr);
-            break;
-        case NODE_DELAY_STMT: // NEW
+        case NODE_DELAY_STMT: // New
             free_ast_node(node->data.delay_stmt.milliseconds_expr);
             break;
-        case NODE_LENGTH_EXPR: // NEW
-            free_ast_node(node->data.length_expr.string_expr);
-            break;
-        case NODE_RANDOM_EXPR: // NEW
-            free_ast_node(node->data.random_expr.min_expr);
-            free_ast_node(node->data.random_expr.max_expr);
-            break;
-        case NODE_MATH_EXPR: // NEW
-            free(node->data.math_expr.operation);
-            free_ast_node(node->data.math_expr.number_expr);
+        case NODE_MATH_STMT: // New
+            free(node->data.math_stmt.operation);
+            free_ast_node(node->data.math_stmt.number_expr);
             break;
         case NODE_STRING_LITERAL:
         case NODE_IDENTIFIER:
@@ -414,22 +377,19 @@ void free_environment(EnvEntry *env) {
 // --- Lexer ---
 
 static char lexer_peek_char() {
-    size_t source_len = strlen(source_code);
-    if (lexer_current_pos >= source_len) return '\0';
+    if (lexer_current_pos >= strlen(source_code)) return '\0';
     return source_code[lexer_current_pos];
 }
 
 static char lexer_advance_char() {
-    size_t source_len = strlen(source_code);
-    if (lexer_current_pos >= source_len) return '\0';
+    if (lexer_current_pos >= strlen(source_code)) return '\0';
     char c = source_code[lexer_current_pos];
     lexer_current_pos++;
     return c;
 }
 
 static void lexer_skip_whitespace_and_comments() {
-    size_t source_len = strlen(source_code);
-    while (lexer_current_pos < source_len) {
+    while (lexer_current_pos < strlen(source_code)) {
         char c = lexer_peek_char();
         if (isspace(c)) {
             if (c == '\n') lexer_current_line++;
@@ -474,8 +434,6 @@ static TokenType lexer_check_keyword(const char *text) {
     if (strcmp(text, "and") == 0) return TOKEN_AND;
     if (strcmp(text, "or") == 0) return TOKEN_OR;
     if (strcmp(text, "not") == 0) return TOKEN_NOT;
-    if (strcmp(text, "length") == 0) return TOKEN_LENGTH;
-    if (strcmp(text, "random") == 0) return TOKEN_RANDOM;
     if (strcmp(text, "math") == 0) return TOKEN_MATH;
     return TOKEN_IDENTIFIER;
 }
@@ -484,8 +442,7 @@ static TokenType lexer_check_keyword(const char *text) {
 Token lexer_get_token_struct() {
     lexer_skip_whitespace_and_comments();
 
-    size_t source_len = strlen(source_code);
-    if (lexer_current_pos >= source_len) {
+    if (lexer_current_pos >= strlen(source_code)) {
         return (Token){TOKEN_EOF, strdup("EOF"), lexer_current_line};
     }
 
@@ -551,7 +508,6 @@ Token lexer_get_token_struct() {
                 return (Token){TOKEN_NEQ, strdup("!="), token_line};
             }
             error("Unexpected character '!'");
-            break; // Add break to prevent fall-through
         case '<':
             if (lexer_peek_char() == '=') {
                 lexer_advance_char();
@@ -597,7 +553,6 @@ TokenType peek_token_type() {
     return type;
 }
 
-
 // --- Parser ---
 
 void consume(TokenType type, const char *expected_lexeme) {
@@ -631,8 +586,6 @@ ASTNode *parse_program() {
             program->data.block_stmt.statements[program->data.block_stmt.num_statements++] = stmt;
         } else {
             // If parse_statement returned NULL and it's not EOF, it means an unparsable token.
-            // This case should ideally be handled by syntax_error inside parse_statement.
-            // But as a fallback:
             if (current_token.type != TOKEN_EOF) {
                  error("Unexpected token at program level. Possibly missing semicolon or incorrect syntax.");
             }
@@ -669,7 +622,6 @@ ASTNode *parse_statement() {
     }
 
     // Optional semicolon at end of statement
-    // NEW: Delay statement can be followed by a semicolon too.
     if (current_token.type == TOKEN_SEMICOLON) {
         consume(TOKEN_SEMICOLON, ";");
     }
@@ -678,7 +630,7 @@ ASTNode *parse_statement() {
 
 ASTNode *parse_clem_statement() {
     int stmt_line = current_token.line;
-    consume(TOKEN_CLEM, "Clem");
+    consume(TOKEN_CLEM, "Clem"); // TOKEN_CLEM must be current_token when this function is called
 
     if (current_token.type == TOKEN_CONSOLE) {
         consume(TOKEN_CONSOLE, "console");
@@ -714,12 +666,10 @@ ASTNode *parse_clem_statement() {
         consume(TOKEN_SCRIPT, "Script");
         if_node->data.if_stmt.then_block = parse_block();
         
-        // Check for optional "Clem else Script" block
-        // If current token is TOKEN_CLEM, and the NEXT token is TOKEN_ELSE
-        if (current_token.type == TOKEN_CLEM && peek_token_type() == TOKEN_ELSE) {
-            consume(TOKEN_CLEM, "Clem"); // Consume the 'Clem'
-            consume(TOKEN_ELSE, "else"); // Consume the 'else'
-            consume(TOKEN_SCRIPT, "Script"); // Consume the 'Script'
+        if (current_token.type == TOKEN_CLEM && peek_token_type() == TOKEN_ELSE) { // Check for "Clem else Script"
+            consume(TOKEN_CLEM, "Clem");
+            consume(TOKEN_ELSE, "else");
+            consume(TOKEN_SCRIPT, "Script");
             if_node->data.if_stmt.else_block = parse_block();
         } else {
             if_node->data.if_stmt.else_block = NULL;
@@ -803,17 +753,28 @@ ASTNode *parse_clem_statement() {
             error("Quiz answer must be an integer literal (option index).");
         }
         return quiz_node;
-    }
-    // NEW STATEMENT TYPE: Delay
-    else if (current_token.type == TOKEN_DELAY) {
+    } else if (current_token.type == TOKEN_INPUT) { // New: Clem input Script <variable> <prompt>
+        consume(TOKEN_INPUT, "input");
+        consume(TOKEN_SCRIPT, "Script");
+        if (current_token.type != TOKEN_IDENTIFIER) {
+            syntax_error("variable name for input");
+        }
+        char *var_name = strdup(current_token.lexeme);
+        consume(TOKEN_IDENTIFIER, "variable name");
+        
+        ASTNode *input_node = create_node(NODE_INPUT_STMT, stmt_line);
+        input_node->data.input_stmt.variable_name = var_name;
+        input_node->data.input_stmt.prompt_expr = parse_expression();
+        return input_node;
+    } else if (current_token.type == TOKEN_DELAY) { // New: Clem delay Script <milliseconds>
         consume(TOKEN_DELAY, "delay");
         consume(TOKEN_SCRIPT, "Script");
         ASTNode *delay_node = create_node(NODE_DELAY_STMT, stmt_line);
         delay_node->data.delay_stmt.milliseconds_expr = parse_expression();
         return delay_node;
     }
-    
-    syntax_error("valid ClemScript statement keyword (console, var, if, while, for, color, quiz, delay)");
+
+    syntax_error("valid ClemScript statement keyword (console, var, if, while, for, color, quiz, input, delay)");
     return NULL; // Should not reach here
 }
 
@@ -846,7 +807,6 @@ ASTNode *parse_block() {
     return block_node;
 }
 
-
 // Expression parsing (Operator Precedence Parsing)
 // expression -> logical_or
 // logical_or   -> logical_and ( ( "Clem or Script" ) logical_and )*
@@ -856,11 +816,9 @@ ASTNode *parse_block() {
 // term       -> factor ( ( "+" | "-" ) factor )*
 // factor     -> primary ( ( "*" | "/" ) primary )*
 // primary    -> INT | STRING | IDENTIFIER | "(" expression ")"
-//             | Clem input Script <prompt>
 //             | Clem even Script <number_expr>
 //             | Clem odd Script <number_expr>
-//             | Clem length Script <string_expr>
-//             | Clem random Script <min_expr> <max_expr>
+//             | Clem math Script <operation> <number_expr>
 
 ASTNode *parse_expression() {
     return parse_logical_or();
@@ -912,27 +870,14 @@ ASTNode *parse_logical_not() {
         node->data.unary_expr.operand = parse_comparison(); // NOT applies to a comparison or higher
         return node;
     }
-    return parse_equality(); // Next precedence level
-}
-
-
-ASTNode *parse_equality() {
-    ASTNode *expr = parse_comparison();
-    while (current_token.type == TOKEN_EQ || current_token.type == TOKEN_NEQ) {
-        ASTNode *node = create_node(NODE_BINARY_EXPR, current_token.line);
-        node->data.binary_expr.left = expr;
-        node->data.binary_expr.operator = current_token.type;
-        advance_token(); // Consume operator
-        node->data.binary_expr.right = parse_comparison();
-        expr = node;
-    }
-    return expr;
+    return parse_comparison();
 }
 
 ASTNode *parse_comparison() {
     ASTNode *expr = parse_term();
     while (current_token.type == TOKEN_GT || current_token.type == TOKEN_GE ||
-           current_token.type == TOKEN_LT || current_token.type == TOKEN_LE) {
+           current_token.type == TOKEN_LT || current_token.type == TOKEN_LE ||
+           current_token.type == TOKEN_EQ || current_token.type == TOKEN_NEQ) {
         ASTNode *node = create_node(NODE_BINARY_EXPR, current_token.line);
         node->data.binary_expr.left = expr;
         node->data.binary_expr.operator = current_token.type;
@@ -989,63 +934,43 @@ ASTNode *parse_primary() {
         consume(TOKEN_LPAREN, "(");
         node = parse_expression();
         consume(TOKEN_RPAREN, ")");
-    }
+    } 
     // NEW EXPRESSION TYPES
     else if (current_token.type == TOKEN_CLEM) {
         // Peek the next token to determine which ClemScript expression it is
         TokenType next_type = peek_token_type();
-        if (next_type == TOKEN_INPUT) {
-            consume(TOKEN_CLEM, "Clem");
-            consume(TOKEN_INPUT, "input");
-            consume(TOKEN_SCRIPT, "Script");
-            node = create_node(NODE_INPUT_EXPR, node_line);
-            node->data.input_expr.prompt_expr = parse_expression(); // Prompt can be an expression
-            return node;
-        } else if (next_type == TOKEN_EVEN) {
+        if (next_type == TOKEN_EVEN) {
             consume(TOKEN_CLEM, "Clem");
             consume(TOKEN_EVEN, "even");
             consume(TOKEN_SCRIPT, "Script");
-            node = create_node(NODE_IS_EVEN_EXPR, node_line);
-            node->data.even_odd_expr.number_expr = parse_expression();
+            node = create_node(NODE_UNARY_EXPR, node_line);
+            node->data.unary_expr.operator = TOKEN_EVEN;
+            node->data.unary_expr.operand = parse_expression();
             return node;
         } else if (next_type == TOKEN_ODD) {
             consume(TOKEN_CLEM, "Clem");
             consume(TOKEN_ODD, "odd");
             consume(TOKEN_SCRIPT, "Script");
-            node = create_node(NODE_IS_ODD_EXPR, node_line);
-            node->data.even_odd_expr.number_expr = parse_expression();
-            return node;
-        } else if (next_type == TOKEN_LENGTH) {
-            consume(TOKEN_CLEM, "Clem");
-            consume(TOKEN_LENGTH, "length");
-            consume(TOKEN_SCRIPT, "Script");
-            node = create_node(NODE_LENGTH_EXPR, node_line);
-            node->data.length_expr.string_expr = parse_expression();
-            return node;
-        } else if (next_type == TOKEN_RANDOM) {
-            consume(TOKEN_CLEM, "Clem");
-            consume(TOKEN_RANDOM, "random");
-            consume(TOKEN_SCRIPT, "Script");
-            node = create_node(NODE_RANDOM_EXPR, node_line);
-            node->data.random_expr.min_expr = parse_expression();
-            node->data.random_expr.max_expr = parse_expression();
+            node = create_node(NODE_UNARY_EXPR, node_line);
+            node->data.unary_expr.operator = TOKEN_ODD;
+            node->data.unary_expr.operand = parse_expression();
             return node;
         } else if (next_type == TOKEN_MATH) {
             consume(TOKEN_CLEM, "Clem");
             consume(TOKEN_MATH, "math");
             consume(TOKEN_SCRIPT, "Script");
-            node = create_node(NODE_MATH_EXPR, node_line);
+            node = create_node(NODE_MATH_STMT, node_line);
             if (current_token.type != TOKEN_IDENTIFIER) {
                 syntax_error("math operation (square, sqrt, abs)");
             }
-            node->data.math_expr.operation = strdup(current_token.lexeme);
+            node->data.math_stmt.operation = strdup(current_token.lexeme);
             consume(TOKEN_IDENTIFIER, "math operation");
-            node->data.math_expr.number_expr = parse_expression();
+            node->data.math_stmt.number_expr = parse_expression();
             return node;
         } else {
             // If it was Clem but not a recognized special expression, it must be part of a statement
             // or an error. Re-add Clem to be consumed by parse_clem_statement
-            syntax_error("expected integer, string, identifier, '(', or a ClemScript expression (input, even, odd, length, random)");
+            syntax_error("expected integer, string, identifier, '(', or a ClemScript expression (even, odd, math)");
         }
     }
     else {
@@ -1074,13 +999,7 @@ void env_assign(const char *name, Value value) {
         if (entry->value.type == VALUE_STRING) {
             free(entry->value.data.string_val);
         }
-        // Assign new value (string_val in 'value' needs to be a new strdup)
-        if (value.type == VALUE_STRING && value.data.string_val != NULL) {
-            entry->value.type = VALUE_STRING;
-            entry->value.data.string_val = strdup(value.data.string_val);
-        } else {
-            entry->value = value;
-        }
+        entry->value = value;
     } else {
         // New variable
         EnvEntry *new_entry = (EnvEntry *)malloc(sizeof(EnvEntry));
@@ -1089,7 +1008,7 @@ void env_assign(const char *name, Value value) {
             exit(1);
         }
         new_entry->name = strdup(name);
-        // If the value being assigned is a string, duplicate it to own the memory
+        // If the value is a string, duplicate it to ensure ownership by environment
         if (value.type == VALUE_STRING && value.data.string_val != NULL) {
             new_entry->value.type = VALUE_STRING;
             new_entry->value.data.string_val = strdup(value.data.string_val);
@@ -1118,23 +1037,6 @@ void print_colored_text(const char *color_name, const char *text) {
 
     printf("%s%s%s\n", color_code, text, ANSI_COLOR_RESET);
 }
-
-// Helper for delaying execution
-void perform_delay(long milliseconds) {
-    if (milliseconds < 0) {
-        fprintf(stderr, "Runtime Error: Delay duration cannot be negative.\n");
-        return;
-    }
-#ifdef _WIN32
-    Sleep(milliseconds); // milliseconds
-#else
-    // usleep takes microseconds, so multiply by 1000
-    // nanosleep is more precise for higher values, but usleep is simpler for small delays.
-    // For milliseconds, usleep might be good enough.
-    usleep(milliseconds * 1000); 
-#endif
-}
-
 
 // Main evaluation function
 Value evaluate(ASTNode *node) {
@@ -1172,18 +1074,43 @@ Value evaluate(ASTNode *node) {
             return result;
         }
         case NODE_BINARY_EXPR: {
-            Value left_val = evaluate(node->data.binary_expr.left);
-            // Short-circuiting for logical AND/OR
-            if (node->data.binary_expr.operator == TOKEN_OR) {
-                if (left_val.type == VALUE_INT && left_val.data.int_val != 0) {
-                    return left_val; // True, short-circuit OR
+            // For logical AND/OR, evaluate left, then potentially right (short-circuit)
+            if (node->data.binary_expr.operator == TOKEN_AND || node->data.binary_expr.operator == TOKEN_OR) {
+                Value left_val = evaluate(node->data.binary_expr.left);
+                if (left_val.type != VALUE_INT) {
+                    fprintf(stderr, "Runtime Error [Line %d]: Logical operations 'and'/'or' require integer (boolean) operands.\n", node->line);
+                    exit(1);
                 }
-            } else if (node->data.binary_expr.operator == TOKEN_AND) {
-                if (left_val.type == VALUE_INT && left_val.data.int_val == 0) {
-                    return left_val; // False, short-circuit AND
+                
+                result.type = VALUE_INT;
+                if (node->data.binary_expr.operator == TOKEN_AND) {
+                    if (left_val.data.int_val == 0) { // Short-circuit if left is false
+                        result.data.int_val = 0;
+                    } else {
+                        Value right_val = evaluate(node->data.binary_expr.right);
+                        if (right_val.type != VALUE_INT) {
+                            fprintf(stderr, "Runtime Error [Line %d]: Logical operations 'and'/'or' require integer (boolean) operands.\n", node->line);
+                            exit(1);
+                        }
+                        result.data.int_val = (right_val.data.int_val != 0);
+                    }
+                } else { // TOKEN_OR
+                    if (left_val.data.int_val != 0) { // Short-circuit if left is true
+                        result.data.int_val = 1;
+                    } else {
+                        Value right_val = evaluate(node->data.binary_expr.right);
+                        if (right_val.type != VALUE_INT) {
+                            fprintf(stderr, "Runtime Error [Line %d]: Logical operations 'and'/'or' require integer (boolean) operands.\n", node->line);
+                            exit(1);
+                        }
+                        result.data.int_val = (right_val.data.int_val != 0);
+                    }
                 }
+                return result;
             }
 
+            // For other binary ops, evaluate both operands first
+            Value left_val = evaluate(node->data.binary_expr.left);
             Value right_val = evaluate(node->data.binary_expr.right);
 
             // Handle string concatenation for TOKEN_PLUS
@@ -1193,25 +1120,28 @@ Value evaluate(ASTNode *node) {
                 char *str_left = NULL;
                 char *str_right = NULL;
                 
+                // Convert left operand to string
                 if (left_val.type == VALUE_STRING) {
                     str_left = left_val.data.string_val;
                 } else if (left_val.type == VALUE_INT) {
-                    char buf[32];
+                    // +1 for null terminator, and an int can be up to 11 chars (e.g., -2147483648)
+                    char buf[16]; 
                     snprintf(buf, sizeof(buf), "%d", left_val.data.int_val);
                     str_left = strdup(buf);
                 } else {
-                    fprintf(stderr, "Runtime Error [Line %d]: Unsupported left type for concatenation.\n", node->line);
+                    fprintf(stderr, "Runtime Error [Line %d]: Unsupported type for concatenation.\n", node->line);
                     exit(1);
                 }
 
+                // Convert right operand to string
                 if (right_val.type == VALUE_STRING) {
                     str_right = right_val.data.string_val;
                 } else if (right_val.type == VALUE_INT) {
-                    char buf[32];
+                    char buf[16];
                     snprintf(buf, sizeof(buf), "%d", right_val.data.int_val);
                     str_right = strdup(buf);
                 } else {
-                    fprintf(stderr, "Runtime Error [Line %d]: Unsupported right type for concatenation.\n", node->line);
+                    fprintf(stderr, "Runtime Error [Line %d]: Unsupported type for concatenation.\n", node->line);
                     exit(1);
                 }
 
@@ -1226,35 +1156,19 @@ Value evaluate(ASTNode *node) {
 
                 // Free temporary strings generated from integers or original string values
                 if (left_val.type == VALUE_INT) free(str_left); 
-                else free_value(left_val); // Free original string if it was string type
+                else free(left_val.data.string_val); // Free original string if it was string type
                 
                 if (right_val.type == VALUE_INT) free(str_right);
-                else free_value(right_val); // Free original string if it was string type
+                else free(right_val.data.string_val); // Free original string if it was string type
 
                 result.type = VALUE_STRING;
                 result.data.string_val = new_str;
                 return result;
             }
 
-            // Logical AND/OR operations
-            if (node->data.binary_expr.operator == TOKEN_AND || node->data.binary_expr.operator == TOKEN_OR) {
-                if (left_val.type != VALUE_INT || right_val.type != VALUE_INT) {
-                    fprintf(stderr, "Runtime Error [Line %d]: Logical operators 'and', 'or' require integer operands.\n", node->line);
-                    exit(1);
-                }
-                result.type = VALUE_INT;
-                if (node->data.binary_expr.operator == TOKEN_AND) {
-                    result.data.int_val = (left_val.data.int_val != 0 && right_val.data.int_val != 0);
-                } else { // TOKEN_OR
-                    result.data.int_val = (left_val.data.int_val != 0 || right_val.data.int_val != 0);
-                }
-                return result;
-            }
-
-
             // For all other binary operations, both operands must be integers
             if (left_val.type != VALUE_INT || right_val.type != VALUE_INT) {
-                fprintf(stderr, "Runtime Error [Line %d]: Type mismatch in binary operation. Expected integers for non-concatenation operations.\n", node->line);
+                fprintf(stderr, "Runtime Error [Line %d]: Type mismatch in binary operation '%s'. Expected integers.\n", node->line, current_token.lexeme);
                 exit(1);
             }
 
@@ -1285,20 +1199,55 @@ Value evaluate(ASTNode *node) {
             }
             return result;
         }
-        case NODE_UNARY_EXPR: { // NEW
+        case NODE_UNARY_EXPR: { // New for 'not', 'even', 'odd'
             Value operand_val = evaluate(node->data.unary_expr.operand);
-            if (node->data.unary_expr.operator == TOKEN_NOT) {
-                if (operand_val.type != VALUE_INT) {
-                    fprintf(stderr, "Runtime Error [Line %d]: Unary operator 'not' requires an integer operand.\n", node->line);
+            result.type = VALUE_INT; // All these ops return integers (0 or 1)
+
+            if (operand_val.type != VALUE_INT) {
+                 fprintf(stderr, "Runtime Error [Line %d]: Unary operator (type %d) requires an integer operand.\n", node->line, node->data.unary_expr.operator);
+                 exit(1);
+            }
+
+            switch (node->data.unary_expr.operator) {
+                case TOKEN_NOT:
+                    result.data.int_val = (operand_val.data.int_val == 0 ? 1 : 0); // 0 becomes 1, non-zero becomes 0
+                    break;
+                case TOKEN_EVEN:
+                    result.data.int_val = (operand_val.data.int_val % 2 == 0);
+                    break;
+                case TOKEN_ODD:
+                    result.data.int_val = (operand_val.data.int_val % 2 != 0);
+                    break;
+                default:
+                    fprintf(stderr, "Runtime Error [Line %d]: Unknown unary operator.\n", node->line);
                     exit(1);
-                }
-                result.type = VALUE_INT;
-                result.data.int_val = (operand_val.data.int_val == 0); // NOT 0 is 1, NOT non-0 is 0
-                return result;
-            } else {
-                fprintf(stderr, "Runtime Error [Line %d]: Unknown unary operator.\n", node->line);
+            }
+            return result;
+        }
+        case NODE_MATH_STMT: { // New for math operations
+            Value number_val = evaluate(node->data.math_stmt.number_expr);
+            result.type = VALUE_INT;
+
+            if (number_val.type != VALUE_INT) {
+                fprintf(stderr, "Runtime Error [Line %d]: Math operations require an integer operand.\n", node->line);
                 exit(1);
             }
+
+            if (strcmp(node->data.math_stmt.operation, "square") == 0) {
+                result.data.int_val = number_val.data.int_val * number_val.data.int_val;
+            } else if (strcmp(node->data.math_stmt.operation, "sqrt") == 0) {
+                if (number_val.data.int_val < 0) {
+                    fprintf(stderr, "Runtime Error [Line %d]: Cannot take square root of negative number.\n", node->line);
+                    exit(1);
+                }
+                result.data.int_val = (int)sqrt(number_val.data.int_val);
+            } else if (strcmp(node->data.math_stmt.operation, "abs") == 0) {
+                result.data.int_val = abs(number_val.data.int_val);
+            } else {
+                fprintf(stderr, "Runtime Error [Line %d]: Unknown math operation '%s'.\n", node->line, node->data.math_stmt.operation);
+                exit(1);
+            }
+            return result;
         }
         case NODE_CONSOLE_STMT: {
             Value expr_val = evaluate(node->data.console_stmt.expression);
@@ -1321,31 +1270,16 @@ Value evaluate(ASTNode *node) {
                 initial_val.type = VALUE_NULL; // Default uninitialized to NULL
             }
             env_assign(node->data.var_decl.name, initial_val);
-            // If the initial_val was a string, env_assign made its own copy, so free this one.
-            if (initial_val.type == VALUE_STRING) free_value(initial_val);
+            // If initial_val was a string, env_assign copied it, so free the original.
+            if (initial_val.type == VALUE_STRING) free(initial_val.data.string_val);
             break;
         }
         case NODE_ASSIGN_STMT: {
             Value val = evaluate(node->data.assign_stmt.value);
-            EnvEntry *entry = env_lookup(node->data.assign_stmt.name);
-            if (!entry) {
-                fprintf(stderr, "Runtime Error [Line %d]: Attempt to assign to undeclared variable '%s'.\n", node->line, node->data.assign_stmt.name);
-                exit(1);
-            }
-            
-            // Handle memory for old value
-            if (entry->value.type == VALUE_STRING) {
-                free(entry->value.data.string_val);
-            }
-            
-            // Assign the new value. If it's a string, duplicate it for the environment.
-            if (val.type == VALUE_STRING) {
-                entry->value.type = VALUE_STRING;
-                entry->value.data.string_val = strdup(val.data.string_val);
-                free_value(val); // Free the temporary string returned by evaluate()
-            } else {
-                entry->value = val;
-            }
+            // The env_assign function handles duplication of strings
+            env_assign(node->data.assign_stmt.name, val);
+            // If val was a string, it was duplicated into env, so free this copy.
+            if (val.type == VALUE_STRING) free(val.data.string_val);
             break;
         }
         case NODE_IF_STMT: {
@@ -1386,7 +1320,6 @@ Value evaluate(ASTNode *node) {
             Value iterator_init_val;
             iterator_init_val.type = VALUE_INT;
             iterator_init_val.data.int_val = start_val.data.int_val;
-            //env_assign makes a copy, so free the temporary initial_val if it was string (not the case here)
             env_assign(node->data.for_stmt.iterator_var, iterator_init_val); 
 
             // Get a pointer to the variable's entry in the environment for direct modification
@@ -1421,7 +1354,7 @@ Value evaluate(ASTNode *node) {
             print_colored_text(color_name_str, text_to_print);
             
             if (text_val.type == VALUE_INT) free(text_to_print); // Free if it was converted from int
-            else free_value(text_val); // Free the duplicated string if it was string type
+            else free(text_val.data.string_val); // Free the duplicated string if it was string type
             break;
         }
         case NODE_QUIZ_STMT: {
@@ -1432,7 +1365,7 @@ Value evaluate(ASTNode *node) {
             }
             printf("\n--- ClemScript Quiz ---\n");
             printf("Question: %s\n", question_val.data.string_val);
-            free_value(question_val); // Free duplicated string
+            free(question_val.data.string_val); // Free duplicated string
 
             for (int i = 0; i < node->data.quiz_stmt.num_options; ++i) {
                 Value option_val = evaluate(node->data.quiz_stmt.option_exprs[i]);
@@ -1441,7 +1374,7 @@ Value evaluate(ASTNode *node) {
                     exit(1);
                 }
                 printf("%d. %s\n", i + 1, option_val.data.string_val);
-                free_value(option_val); // Free duplicated string
+                free(option_val.data.string_val); // Free duplicated string
             }
 
             Value correct_answer_val = evaluate(node->data.quiz_stmt.correct_answer_expr);
@@ -1451,33 +1384,14 @@ Value evaluate(ASTNode *node) {
             }
             int correct_idx = correct_answer_val.data.int_val;
 
-            int user_answer = 0; // Initialize to prevent warning
+            int user_answer;
             printf("Enter your answer (1-%d): ", node->data.quiz_stmt.num_options);
             // Loop until valid integer input is received
-            char input_buffer[256]; // A buffer for reading line input
-            char *endptr;
-            long num_read;
-            
-            while (fgets(input_buffer, sizeof(input_buffer), stdin) != NULL) {
-                // Remove trailing newline character if present
-                input_buffer[strcspn(input_buffer, "\n")] = 0;
-
-                // Try to convert string to long integer
-                num_read = strtol(input_buffer, &endptr, 10);
-
-                // Check for conversion errors
-                if (endptr == input_buffer || *endptr != '\0') {
-                    printf("Invalid input. Please enter a number between 1 and %d: ", node->data.quiz_stmt.num_options);
-                } else {
-                    user_answer = (int)num_read;
-                    if (user_answer >= 1 && user_answer <= node->data.quiz_stmt.num_options) {
-                        break; // Valid input
-                    } else {
-                        printf("Input out of range. Please enter a number between 1 and %d: ", node->data.quiz_stmt.num_options);
-                    }
-                }
+            while (scanf("%d", &user_answer) != 1 || user_answer < 1 || user_answer > node->data.quiz_stmt.num_options) {
+                printf("Invalid input. Please enter a number between 1 and %d: ", node->data.quiz_stmt.num_options);
+                while (getchar() != '\n'); // Clear invalid input
             }
-
+            while (getchar() != '\n'); // Clear the newline character left by scanf
 
             if (user_answer == correct_idx) {
                 printf(ANSI_COLOR_GREEN "Correct!\n" ANSI_COLOR_RESET);
@@ -1487,109 +1401,45 @@ Value evaluate(ASTNode *node) {
             printf("-----------------------\n");
             break;
         }
-        case NODE_INPUT_EXPR: { // NEW
-            Value prompt_val = evaluate(node->data.input_expr.prompt_expr);
+        case NODE_INPUT_STMT: { // New
+            Value prompt_val = evaluate(node->data.input_stmt.prompt_expr);
             if (prompt_val.type != VALUE_STRING) {
                 fprintf(stderr, "Runtime Error [Line %d]: Input prompt must be a string.\n", node->line);
                 exit(1);
             }
             printf("%s", prompt_val.data.string_val);
-            free_value(prompt_val); // Free the prompt string
+            free(prompt_val.data.string_val); // Free duplicated string
 
-            char buffer[1024]; // Arbitrary buffer size for input
-            if (fgets(buffer, sizeof(buffer), stdin) != NULL) {
-                buffer[strcspn(buffer, "\n")] = 0; // Remove trailing newline
-                result.type = VALUE_STRING;
-                result.data.string_val = strdup(buffer);
-            } else {
+            char input_buffer[256]; // A reasonable buffer size for input
+            if (fgets(input_buffer, sizeof(input_buffer), stdin) == NULL) {
                 fprintf(stderr, "Runtime Error [Line %d]: Failed to read input.\n", node->line);
                 exit(1);
             }
-            return result;
-        }
-        case NODE_IS_EVEN_EXPR: { // NEW
-            Value num_val = evaluate(node->data.even_odd_expr.number_expr);
-            if (num_val.type != VALUE_INT) {
-                fprintf(stderr, "Runtime Error [Line %d]: 'even' check requires an integer operand.\n", node->line);
-                exit(1);
-            }
-            result.type = VALUE_INT;
-            result.data.int_val = (num_val.data.int_val % 2 == 0);
-            return result;
-        }
-        case NODE_IS_ODD_EXPR: { // NEW
-            Value num_val = evaluate(node->data.even_odd_expr.number_expr);
-            if (num_val.type != VALUE_INT) {
-                fprintf(stderr, "Runtime Error [Line %d]: 'odd' check requires an integer operand.\n", node->line);
-                exit(1);
-            }
-            result.type = VALUE_INT;
-            result.data.int_val = (num_val.data.int_val % 2 != 0);
-            return result;
-        }
-        case NODE_DELAY_STMT: { // NEW
-            Value ms_val = evaluate(node->data.delay_stmt.milliseconds_expr);
-            if (ms_val.type != VALUE_INT) {
-                fprintf(stderr, "Runtime Error [Line %d]: Delay duration must be an integer (milliseconds).\n", node->line);
-                exit(1);
-            }
-            perform_delay(ms_val.data.int_val);
+            // Remove trailing newline character, if any
+            input_buffer[strcspn(input_buffer, "\n")] = 0;
+
+            Value input_val;
+            input_val.type = VALUE_STRING;
+            input_val.data.string_val = strdup(input_buffer); // Duplicate input string
+            env_assign(node->data.input_stmt.variable_name, input_val);
+            free(input_val.data.string_val); // Free the local duplicated string as env_assign makes its own copy
             break;
         }
-        case NODE_LENGTH_EXPR: { // NEW
-            Value str_val = evaluate(node->data.length_expr.string_expr);
-            if (str_val.type != VALUE_STRING) {
-                fprintf(stderr, "Runtime Error [Line %d]: 'length' requires a string operand.\n", node->line);
+        case NODE_DELAY_STMT: { // New
+            Value delay_val = evaluate(node->data.delay_stmt.milliseconds_expr);
+            if (delay_val.type != VALUE_INT) {
+                fprintf(stderr, "Runtime Error [Line %d]: Delay value must be an integer (milliseconds).\n", node->line);
                 exit(1);
             }
-            result.type = VALUE_INT;
-            result.data.int_val = (int)strlen(str_val.data.string_val);
-            free_value(str_val); // Free the duplicated string
-            return result;
-        }
-        case NODE_RANDOM_EXPR: { // NEW
-            Value min_val = evaluate(node->data.random_expr.min_expr);
-            Value max_val = evaluate(node->data.random_expr.max_expr);
-            if (min_val.type != VALUE_INT || max_val.type != VALUE_INT) {
-                fprintf(stderr, "Runtime Error [Line %d]: 'random' requires integer min and max operands.\n", node->line);
-                exit(1);
-            }
-            int min = min_val.data.int_val;
-            int max = max_val.data.int_val;
+            long milliseconds = delay_val.data.int_val;
+            if (milliseconds < 0) milliseconds = 0; // Prevent negative delay
 
-            if (min > max) {
-                fprintf(stderr, "Runtime Error [Line %d]: 'random' min value cannot be greater than max value.\n", node->line);
-                exit(1);
-            }
-            
-            result.type = VALUE_INT;
-            result.data.int_val = rand() % (max - min + 1) + min;
-            return result;
-        }
-        case NODE_MATH_EXPR: { // NEW
-            Value num_val = evaluate(node->data.math_expr.number_expr);
-            if (num_val.type != VALUE_INT) {
-                fprintf(stderr, "Runtime Error [Line %d]: Math operations require an integer operand.\n", node->line);
-                exit(1);
-            }
-            result.type = VALUE_INT;
-            
-            if (strcmp(node->data.math_expr.operation, "square") == 0) {
-                result.data.int_val = num_val.data.int_val * num_val.data.int_val;
-            } else if (strcmp(node->data.math_expr.operation, "sqrt") == 0) {
-                if (num_val.data.int_val < 0) {
-                    fprintf(stderr, "Runtime Error [Line %d]: Cannot calculate square root of negative number.\n", node->line);
-                    exit(1);
-                }
-                result.data.int_val = (int)sqrt(num_val.data.int_val);
-            } else if (strcmp(node->data.math_expr.operation, "abs") == 0) {
-                result.data.int_val = abs(num_val.data.int_val);
-            } else {
-                fprintf(stderr, "Runtime Error [Line %d]: Unknown math operation '%s'. Supported: square, sqrt, abs.\n", 
-                        node->line, node->data.math_expr.operation);
-                exit(1);
-            }
-            return result;
+            #ifdef _WIN32
+                Sleep(milliseconds); // milliseconds
+            #else
+                usleep(milliseconds * 1000); // milliseconds to microseconds
+            #endif
+            break;
         }
         case NODE_PROGRAM:
         case NODE_BLOCK_STMT: {
