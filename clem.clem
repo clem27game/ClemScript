@@ -1,9 +1,7 @@
 
 Clem var Script age;
 Clem input Script age "Entrez votre âge: ";
-
-Clem var Script est_pair;
-est_pair = Clem even Script age;
+Clem even Script age;
 
 Clem if Script (est_pair) Clem then Script {
     Clem console Script -> "Votre âge est pair.";
@@ -11,12 +9,10 @@ Clem if Script (est_pair) Clem then Script {
     Clem console Script -> "Votre âge est impair.";
 }
 
-Clem var Script carre;
-carre = Clem math Script square age;
+Clem math Script square age;
 Clem console Script -> "Le carré de votre âge est : " + carre;
 
-Clem var Script racine;
-racine = Clem math Script sqrt age;
+Clem math Script sqrt age;
 Clem console Script -> "La racine carrée de votre âge est : " + racine;
 
 Clem delay Script 1000;
