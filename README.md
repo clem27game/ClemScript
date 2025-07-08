@@ -111,8 +111,39 @@ Clem if Script (x > 5 && y < 25) Clem then Script {
 
 Clem color Script "green" "Exécution terminée avec succès!";
 ```
+## 🍥 Nouvelles fonctionnalités 🎉
 
+Le langage de programmation ``💚 ClemScript🩷`` possède les fonctionnalités : 
+
+- **Clem interact Script** : fonctionne avec input, et Clem then Script Pour crée vos histoires et jeux interactifs avec choix.
+  
+- **Clem random valeur Script** min max : pour générer un nombre aléatoire entre un minimum et un maximum de votre choix
+
+- **Clem random text** : pour afficher un texte aléatoire parmis les textes de votre choix.
+
+## 🍘 Exemple d'utilisation des nouvelles fonctionnalités dans un script 
+
+```
+Clem color Script "green" "Génération d'un nombre aléatoire...";
+Clem random valeur Script 1 100;
+
+Clem color Script "blue" "Texte aléatoire:";
+Clem random text Script "Bonjour", "Salut", "Coucou", "Hello", "Hi";
+
+Clem var Script choix;
+Clem input Script choix "Choisissez votre aventure (forêt/montagne/océan): ";
+
+Clem interact Script choix "forêt", "montagne", "océan" Clem then Script {
+    Clem color Script "green" "Vous avez choisi une aventure valide!";
+    Clem random text Script "Vous explorez la nature", "Une grande aventure vous attend", "Le paysage est magnifique";
+} Clem else Script {
+    Clem color Script "red" "Choix non reconnu. Essayez forêt, montagne ou océan.";
+}
+```
+  
 ## Installation
 Aucune installation spécifique n'est requise. Il suffit de cloner ce dépôt et de suivre les instructions ci-dessus pour exécuter vos fichiers ClemScript.
 
 **Bonne expérimentation avec mon langage de programmation** 😉
+
+♥️ si vous souhaitez en voir plus, parcourez mon github pour découvrir mes autres langages de programmation et mes autres projets!♥️
