@@ -147,3 +147,18 @@ Aucune installation spécifique n'est requise. Il suffit de cloner ce dépôt et
 **Bonne expérimentation avec mon langage de programmation** 😉
 
 ♥️ si vous souhaitez en voir plus, parcourez mon github pour découvrir mes autres langages de programmation et mes autres projets!♥️
+
+🌸 Installer l'exécutable :
+
+```
+!sudo apt-get update
+!sudo apt-get install -y build-essential
+
+!which clang
+
+!sudo apt-get install -y clang
+
+!clang main.c -o main -lm
+
+!make
+```
